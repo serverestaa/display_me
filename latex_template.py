@@ -117,15 +117,20 @@ def generate_latex(user, sections) -> str:
     )
 
     body = ""
-    for section in sections:
+    active_sections = [s for s in sections if s.is_active]
+    sorted_sections = sorted(active_sections, key=lambda s: s.order)
+    for section in sorted_sections:
         # Например, "Education"
         if not section.blocks:
             continue
         body += f"\\section{{{escape(section.title)}}}\n"
         body += "\\resumeSubHeadingListStart\n"
 
+        active_blocks = [b for b in section.blocks if b.is_active]
+        sorted_blocks = sorted(active_blocks, key=lambda b: b.order)
+
         # Для каждого блока внутри секции
-        for block in section.blocks:
+        for block in sorted_blocks:
             # \resumeSubheading{header}{location}{subheader}{dates}
             # ВНИМАНИЕ: порядок аргументов см. в шаблоне!
             # #1=header, #2=location, #3=subheader, #4=dates
