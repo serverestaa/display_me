@@ -12,7 +12,7 @@ from authlib.integrations.starlette_client import OAuth, OAuthError
 from fastapi import Request
 from passlib.context import CryptContext
 from jose import JWTError, jwt
-
+from starlette.middleware.sessions import SessionMiddleware
 from database import SessionLocal, engine, Base
 import models
 import schemas
@@ -22,7 +22,7 @@ from latex_template import generate_latex
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Resume Builder with JWT")
-
+app.add_middleware(SessionMiddleware, secret_key="YOUR_SUPER_SECRET_KEY")
 # ---------------------- Конфиг для JWT ----------------------
 SECRET_KEY = os.getenv("SECRET_KEY")
 ALGORITHM = os.getenv("ALGORITHM", "HS256")
