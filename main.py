@@ -1,4 +1,6 @@
 import os
+from dotenv import load_dotenv
+load_dotenv()
 import subprocess
 from datetime import datetime, timedelta
 from typing import Optional
@@ -6,7 +8,8 @@ from fastapi import Response
 from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
-
+from authlib.integrations.starlette_client import OAuth, OAuthError
+from fastapi import Request
 from passlib.context import CryptContext
 from jose import JWTError, jwt
 
@@ -21,9 +24,9 @@ Base.metadata.create_all(bind=engine)
 app = FastAPI(title="Resume Builder with JWT")
 
 # ---------------------- Конфиг для JWT ----------------------
-SECRET_KEY = "YOUR_SUPER_SECRET_KEY"  # замените на реальный ключ!
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60  # токен живет, к примеру, 60 минут
+SECRET_KEY = os.getenv("SECRET_KEY")
+ALGORITHM = os.getenv("ALGORITHM", "HS256")
+ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 60))
 
 # ---------------------- Подготовка паролей (passlib) ----------------------
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -59,9 +62,6 @@ def get_current_user(
     token: str = Depends(oauth2_scheme),
     db: Session = Depends(get_db),
 ) -> User:
-    """
-    Декодирование токена, получение пользователя из БД.
-    """
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials.",
@@ -83,10 +83,6 @@ def get_current_user(
 # ---------------------- AUTH endpoints ----------------------
 @app.post("/auth/register", response_model=schemas.UserRead)
 def register_user(user_in: schemas.UserCreate, db: Session = Depends(get_db)):
-    """
-    Регистрируем нового пользователя (email + password).
-    """
-    # Проверим, не занят ли email
     existing = db.query(User).filter(User.email == user_in.email).first()
     if existing:
         raise HTTPException(status_code=400, detail="Email already registered")
@@ -111,25 +107,17 @@ def login_for_access_token(
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: Session = Depends(get_db)
 ):
-    """
-    Авторизация: принимает form-data с полями:
-    username=<email>, password=<password>.
-    Возвращает JWT-токен (access_token).
-    """
-    # Ищем пользователя по email
     user = db.query(User).filter(User.email == form_data.username).first()
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
         )
-    # Проверяем пароль
     if not verify_password(form_data.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
         )
-    # Создаем токен
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
         data={"sub": str(user.id)},  # в sub пишем user_id
@@ -137,17 +125,110 @@ def login_for_access_token(
     )
     return schemas.Token(access_token=access_token, token_type="bearer")
 
+
+# ---------------------- OAuth configuration ----------------------
+
+oauth = OAuth(app)
+oauth.config = {}
+oauth.register(
+    name='google',
+    client_id=os.getenv('GOOGLE_CLIENT_ID'),
+    client_secret=os.getenv('GOOGLE_CLIENT_SECRET'),
+    access_token_url='https://accounts.google.com/o/oauth2/token',
+    access_token_params=None,
+    authorize_url='https://accounts.google.com/o/oauth2/auth',
+    authorize_params=None,
+    api_base_url='https://www.googleapis.com/oauth2/v1/',
+    userinfo_endpoint='https://www.googleapis.com/oauth2/v3/userinfo',
+    client_kwargs={'scope': 'openid email profile'},
+)
+
+oauth.register(
+    name='github',
+    client_id=os.getenv('GITHUB_CLIENT_ID'),
+    client_secret=os.getenv('GITHUB_CLIENT_SECRET'),
+    access_token_url='https://github.com/login/oauth/access_token',
+    access_token_params=None,
+    authorize_url='https://github.com/login/oauth/authorize',
+    authorize_params=None,
+    api_base_url='https://api.github.com/',
+    client_kwargs={'scope': 'user:email'},
+)
+
+
+
+@app.get("/auth/google")
+async def auth_google(request: Request):
+    redirect_uri = request.url_for('auth_google_callback')
+    return await oauth.google.authorize_redirect(request, redirect_uri)
+
+
+@app.get("/auth/google/callback")
+async def auth_google_callback(request: Request, db: Session = Depends(get_db)):
+    try:
+        token = await oauth.google.authorize_access_token(request)
+    except OAuthError:
+        raise HTTPException(status_code=400, detail="Google authentication failed")
+    user_info = await oauth.google.parse_id_token(request, token)
+    email = user_info.get('email')
+    if not email:
+        raise HTTPException(status_code=400, detail="Email not available from Google")
+    user = db.query(User).filter(User.email == email).first()
+    if not user:
+        user = User(
+            email=email,
+            hashed_password="",
+            name=user_info.get('name', '')
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(data={"sub": str(user.id)}, expires_delta=access_token_expires)
+    return {"access_token": access_token, "token_type": "bearer"}
+
+
+@app.get("/auth/github")
+async def auth_github(request: Request):
+    redirect_uri = request.url_for('auth_github_callback')
+    return await oauth.github.authorize_redirect(request, redirect_uri)
+
+
+@app.get("/auth/github/callback")
+async def auth_github_callback(request: Request, db: Session = Depends(get_db)):
+    try:
+        token = await oauth.github.authorize_access_token(request)
+    except OAuthError:
+        raise HTTPException(status_code=400, detail="GitHub authentication failed")
+    resp = await oauth.github.get('user', token=token)
+    profile = resp.json()
+    email = profile.get('email')
+    if not email:
+        resp_emails = await oauth.github.get('user/emails', token=token)
+        emails = resp_emails.json()
+        primary_email = next((item['email'] for item in emails if item.get('primary') and item.get('verified')), None)
+        email = primary_email
+    if not email:
+        raise HTTPException(status_code=400, detail="GitHub account does not have a verified email")
+    user = db.query(User).filter(User.email == email).first()
+    if not user:
+        user = User(
+            email=email,
+            hashed_password="",
+            name=profile.get('name') or profile.get('login')
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(data={"sub": str(user.id)}, expires_delta=access_token_expires)
+    return {"access_token": access_token, "token_type": "bearer"}
+
 # ---------------------- USER endpoints ----------------------
 
 @app.get("/users/me", response_model=schemas.UserRead)
 def read_users_me(current_user: User = Depends(get_current_user)):
-    """
-    Возвращаем информацию о текущем (авторизованном) пользователе.
-    """
     return current_user
-
-# По желанию, можно иметь эндпоинты вроде /users/me/update для редактирования профиля
-# Но чаще такие вещи выносят на отдельный PUT/PATCH.
 
 # ---------------------- SECTIONS endpoints ----------------------
 
@@ -157,10 +238,6 @@ def create_section(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """
-    Создать новую секцию (например, Education/Experience).
-    Только для авторизованного пользователя.
-    """
     section = Section(
         title=section_in.title,
         owner=current_user

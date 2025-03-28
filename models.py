@@ -12,7 +12,6 @@ class User(Base):
     linkedin = Column(String, nullable=True)
     github = Column(String, nullable=True)
 
-    # Храним только хэш пароля
     hashed_password = Column(String, nullable=True)
 
     sections = relationship("Section", back_populates="owner")
@@ -22,13 +21,13 @@ class Section(Base):
     __tablename__ = "sections"
 
     id = Column(Integer, primary_key=True, index=True)
-    title = Column(String, nullable=False)  # Например, "Education", "Experience"
+    title = Column(String, nullable=False)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    is_active = Column(Boolean, default=True)  # Новое поле для включения/отключения секции
+    is_active = Column(Boolean, default=True)
     order = Column(Integer, default=0)
-    # Связь с пользователем
+
     owner = relationship("User", back_populates="sections")
-    # Связь "один ко многим" с блоками
+
     blocks = relationship("Block", back_populates="section")
 
 
@@ -36,14 +35,13 @@ class Block(Base):
     __tablename__ = "blocks"
 
     id = Column(Integer, primary_key=True, index=True)
-    header = Column(String, nullable=True)       # Например, "Nazarbayev University"
-    location = Column(String, nullable=True)     # Например, "Astana, Kazakhstan"
-    subheader = Column(String, nullable=True)    # Например, "BSc Computer Science, GPA: 3.54, top 4%"
-    dates = Column(String, nullable=True)        # Например, "August 2022 - June 2026"
-    description = Column(String, nullable=True)  # Доп. информация (курс, проект, опыт)
-    is_active = Column(Boolean, default=True)  # Новое поле для включения/отключения блока
+    header = Column(String, nullable=True)
+    location = Column(String, nullable=True)
+    subheader = Column(String, nullable=True)
+    dates = Column(String, nullable=True)
+    description = Column(String, nullable=True)
+    is_active = Column(Boolean, default=True)
     order = Column(Integer, default=0)
     section_id = Column(Integer, ForeignKey("sections.id"), nullable=False)
 
-    # Связь с секцией
     section = relationship("Section", back_populates="blocks")

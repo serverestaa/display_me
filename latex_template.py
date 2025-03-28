@@ -131,9 +131,6 @@ def generate_latex(user, sections) -> str:
 
         # Для каждого блока внутри секции
         for block in sorted_blocks:
-            # \resumeSubheading{header}{location}{subheader}{dates}
-            # ВНИМАНИЕ: порядок аргументов см. в шаблоне!
-            # #1=header, #2=location, #3=subheader, #4=dates
             header     = escape(block.header or "")
             location   = escape(block.location or "")
             subheader  = escape(block.subheader or "")
@@ -152,8 +149,6 @@ def generate_latex(user, sections) -> str:
                 # Все параметры присутствуют
                 body += f"\\resumeSubheading{{{header}}}{{{location}}}{{{subheader}}}{{{dates}}}\n"
 
-            # Если есть какое-то описание (bullets), добавляем \resumeItemListStart...\resumeItemListEnd
-            # Допустим, вы храните все «буллеты» в block.description, разделяя «•» (или '\n')
             if block.description:
                 bullets = [b.strip() for b in block.description.split("•") if b.strip()]
                 body += "\\resumeItemListStart\n"
