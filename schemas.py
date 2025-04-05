@@ -8,7 +8,7 @@ class UserCreate(BaseModel):
     # Добавим поле password (plaintext)
     email: EmailStr
     password: str
-
+    username: str
     # Остальные поля — опционально
     name: Optional[str] = None
     phone: Optional[str] = None
@@ -19,6 +19,7 @@ class UserCreate(BaseModel):
 class UserRead(BaseModel):
     id: int
     email: EmailStr
+    username: Optional[str]
     name: Optional[str]
     phone: Optional[str]
     linkedin: Optional[str]
@@ -27,7 +28,8 @@ class UserRead(BaseModel):
     class Config:
         orm_mode = True
 
-
+class UserUpdateUsername(BaseModel):
+    username: str
 # ----- Auth -----
 
 class Token(BaseModel):

@@ -7,6 +7,7 @@ from typing import Optional
 from fastapi import Response
 from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 from authlib.integrations.starlette_client import OAuth, OAuthError
 from fastapi import Request
@@ -18,11 +19,28 @@ import models
 import schemas
 from models import User, Section, Block
 from latex_template import generate_latex
-
+from fastapi.middleware.cors import CORSMiddleware
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Resume Builder with JWT")
 app.add_middleware(SessionMiddleware, secret_key="YOUR_SUPER_SECRET_KEY")
+
+origins = [
+    "http://localhost.tiangolo.com",
+    "https://localhost.tiangolo.com",
+    "http://localhost",
+    "http://localhost:3000",
+    "http://localhost:8080",
+    "https://www.displayme.online"
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 # ---------------------- Конфиг для JWT ----------------------
 SECRET_KEY = os.getenv("SECRET_KEY")
 ALGORITHM = os.getenv("ALGORITHM", "HS256")
@@ -134,12 +152,8 @@ oauth.register(
     name='google',
     client_id=os.getenv('GOOGLE_CLIENT_ID'),
     client_secret=os.getenv('GOOGLE_CLIENT_SECRET'),
-    access_token_url='https://accounts.google.com/o/oauth2/token',
-    access_token_params=None,
-    authorize_url='https://accounts.google.com/o/oauth2/auth',
-    authorize_params=None,
-    api_base_url='https://www.googleapis.com/oauth2/v1/',
-    userinfo_endpoint='https://www.googleapis.com/oauth2/v3/userinfo',
+    server_metadata_url='https://accounts.google.com/.well-known/openid-configuration',
+    api_base_url='https://openidconnect.googleapis.com/v1/',
     client_kwargs={'scope': 'openid email profile'},
 )
 
@@ -159,18 +173,31 @@ oauth.register(
 
 @app.get("/auth/google")
 async def auth_google(request: Request):
+    # Optionally, store callbackUrl from query params in session
+    callback_url = request.query_params.get("callbackUrl")
+    if callback_url:
+        request.session["callbackUrl"] = callback_url
+
     redirect_uri = request.url_for('auth_google_callback')
     return await oauth.google.authorize_redirect(request, redirect_uri)
 
 
 @app.get("/auth/google/callback")
 async def auth_google_callback(request: Request, db: Session = Depends(get_db)):
+    print("there")
     try:
         token = await oauth.google.authorize_access_token(request)
     except OAuthError:
         raise HTTPException(status_code=400, detail="Google authentication failed")
-    user_info = await oauth.google.parse_id_token(request, token)
+    print("1here")
+    try:
+        user_info = await oauth.google.parse_id_token(request, token)
+    except KeyError:
+        # Если нет id_token, берем через userinfo endpoint
+        resp = await oauth.google.get('userinfo', token=token)
+        user_info = resp.json()
     email = user_info.get('email')
+    print("here")
     if not email:
         raise HTTPException(status_code=400, detail="Email not available from Google")
     user = db.query(User).filter(User.email == email).first()
@@ -185,6 +212,27 @@ async def auth_google_callback(request: Request, db: Session = Depends(get_db)):
         db.refresh(user)
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(data={"sub": str(user.id)}, expires_delta=access_token_expires)
+    callback_url = request.session.get("callbackUrl")
+    if callback_url:
+        # Например, добавляем токен в качестве query-параметра
+        redirect_url = f"{callback_url}?access_token={access_token}&token_type=bearer"
+        return RedirectResponse(url=redirect_url)
+    """
+    Когда деплой то в куки сделаем
+    if callback_url:
+        response = RedirectResponse(url=callback_url)
+        # Set the token in an HTTP-only cookie instead of URL parameters.
+        response.set_cookie(
+            key="access_token",
+            value=access_token,
+            httponly=True,
+            max_age=ACCESS_TOKEN_EXPIRE_MINUTES * 60,  # cookie lifetime in seconds
+            secure=False,  # change to True in production with HTTPS
+            samesite="lax"  # or "none" if needed
+        )
+        return response
+    """
+    # Если callbackUrl не был передан – возвращаем JSON
     return {"access_token": access_token, "token_type": "bearer"}
 
 
@@ -229,6 +277,39 @@ async def auth_github_callback(request: Request, db: Session = Depends(get_db)):
 @app.get("/users/me", response_model=schemas.UserRead)
 def read_users_me(current_user: User = Depends(get_current_user)):
     return current_user
+
+
+# ---------------------- USERNAME ENDPOINTS ----------------------
+@app.put("/users/me/username", response_model=schemas.UserRead)
+def update_username(
+        username_in: schemas.UserUpdateUsername,
+        db: Session = Depends(get_db),
+        current_user: User = Depends(get_current_user)
+):
+    # Check if username is already taken
+    existing_user = db.query(User).filter(
+        User.username == username_in.username,
+        User.id != current_user.id
+    ).first()
+    if existing_user:
+        raise HTTPException(status_code=400, detail="Username already taken")
+
+    current_user.username = username_in.username
+    db.commit()
+    db.refresh(current_user)
+    return current_user
+
+
+@app.get("/users/{username}", response_model=schemas.UserRead)
+def get_user_by_username(
+        username: str,
+        db: Session = Depends(get_db)
+):
+    user = db.query(User).filter(User.username == username).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return user
+
 
 # ---------------------- SECTIONS endpoints ----------------------
 

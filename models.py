@@ -7,6 +7,7 @@ class User(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, nullable=True)
+    username = Column(String, unique=True)
     phone = Column(String, nullable=True)
     email = Column(String, nullable=True, unique=True)  # сделаем уникальным
     linkedin = Column(String, nullable=True)

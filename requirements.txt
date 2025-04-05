@@ -5,4 +5,5 @@ authlib~=1.5.1
 passlib~=1.7.4
 jose~=1.0.0
 python-jose~=3.3.0
+starlette~=0.41.3
 pydantic~=2.11.0
