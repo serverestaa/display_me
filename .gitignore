@@ -1,24 +1,20 @@
-# Byte-compiled / optimized / DLL files
+
 __pycache__/
 *.py[cod]
 *$py.class
 
-# Virtual environment
 venv/
 .venv/
 ENV/
 env/
 .Python
 
-# PyInstaller
 *.manifest
 *.spec
 
-# Installer logs
 pip-log.txt
 pip-delete-this-directory.txt
 
-# Unit test / coverage reports
 htmlcov/
 .tox/
 .nox/
@@ -29,57 +25,42 @@ coverage.xml
 nosetests.xml
 pytest_cache/
 
-# Jupyter Notebook checkpoints
 .ipynb_checkpoints
 
-# mypy
 .mypy_cache/
 .dmypy.json
 dmypy.json
 
-# Pyre type checker
 .pyre/
 
-# Pytype
 .pytype/
 
-# VSCode
 .vscode/
 
-# PyCharm
 .idea/
 
-# MacOS
 .DS_Store
 
-# Logs
 *.log
 
-# Local dotenv environment variables
 .env
 .env.*
 
-# Python wheels
 *.whl
 
-# Build artifacts
 build/
 dist/
 *.egg-info/
 .eggs/
 
-# Static files / compiled assets (if applicable)
 staticfiles/
 frontend/dist/
 frontend/node_modules/
 
-# SQLite DBs or local dev databases
 *.sqlite3
 
-# Temporary files
 *.tmp
 *.bak
 *.swp
 
-# Gunicorn logs
 gunicorn*.log
