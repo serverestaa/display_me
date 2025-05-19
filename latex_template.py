@@ -135,7 +135,7 @@ def _adapter_sections(user: Any, sections: List[Any]) -> str:
     contacts = [escape(getattr(user, attr)) for attr in ('email', 'phone') if getattr(user, attr, None)]
     if contacts:
         lines.append(rf"\small {' $|$ '.join(contacts)}")
-    lines.append(r"\end{center}\n")
+    lines.append(r"\end{center}")
 
     # Секции и блоки
     active = [s for s in sections if getattr(s, 'is_active', True)]
@@ -159,7 +159,7 @@ def _adapter_sections(user: Any, sections: List[Any]) -> str:
                 for it in items:
                     lines.append(rf"  \resumeItem{{{escape(it)}}}")
                 lines.append(r"\resumeItemListEnd")
-        lines.append(r"\resumeSubHeadingListEnd\n")
+        lines.append(r"\resumeSubHeadingListEnd")
 
     return "\n".join(lines)
 
@@ -192,7 +192,7 @@ def _adapter_complete(resume: Any) -> str:
             lines.append(rf"\textit{{{safe(gen.occupation)}}}")
         if gen.about:
             lines.append(rf"{safe(gen.about)}")
-        lines.append(r"\end{center}\n")
+        lines.append(r"\end{center}")
 
     # Work Experience
     if getattr(resume, 'workExperience', None):
@@ -210,7 +210,7 @@ def _adapter_complete(resume: Any) -> str:
                 for it in items:
                     lines.append(rf"  \resumeItem{{{escape(it)}}}")
                 lines.append(r"\resumeItemListEnd")
-        lines.append(r"\resumeSubHeadingListEnd\n")
+        lines.append(r"\resumeSubHeadingListEnd")
 
     # Projects
     if getattr(resume, 'projects', None):
@@ -228,7 +228,7 @@ def _adapter_complete(resume: Any) -> str:
                 for it in items:
                     lines.append(rf"  \resumeItem{{{escape(it)}}}")
                 lines.append(r"\resumeItemListEnd")
-        lines.append(r"\resumeSubHeadingListEnd\n")
+        lines.append(r"\resumeSubHeadingListEnd")
 
     # Education
     if getattr(resume, 'education', None):
@@ -246,7 +246,7 @@ def _adapter_complete(resume: Any) -> str:
                 for it in items:
                     lines.append(rf"  \resumeItem{{{escape(it)}}}")
                 lines.append(r"\resumeItemListEnd")
-        lines.append(r"\resumeSubHeadingListEnd\n")
+        lines.append(r"\resumeSubHeadingListEnd")
 
     # Achievements
     if getattr(resume, 'achievements', None):
@@ -262,7 +262,7 @@ def _adapter_complete(resume: Any) -> str:
                 for it in items:
                     lines.append(rf"  \resumeItem{{{escape(it)}}}")
                 lines.append(r"\resumeItemListEnd")
-        lines.append(r"\resumeSubHeadingListEnd\n")
+        lines.append(r"\resumeSubHeadingListEnd")
 
     # Skills
     if getattr(resume, 'skills', None):
@@ -277,7 +277,7 @@ def _adapter_complete(resume: Any) -> str:
             line = ", ".join(parts)
             if line:
                 lines.append(rf"  \resumeItem{{{line}}}")
-        lines.append(r"\resumeItemListEnd\n")
+        lines.append(r"\resumeItemListEnd")
 
     # Contacts
     if getattr(resume, 'contacts', None):
@@ -292,7 +292,7 @@ def _adapter_complete(resume: Any) -> str:
             line = ", ".join(parts)
             if line:
                 lines.append(rf"  \resumeItem{{{line}}}")
-        lines.append(r"\resumeItemListEnd\n")
+        lines.append(r"\resumeItemListEnd")
 
     return "\n".join(lines)
 
