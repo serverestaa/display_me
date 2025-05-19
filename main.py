@@ -132,22 +132,21 @@ async def auth_google(request: Request):
 
 @app.get("/auth/google/callback")
 async def auth_google_callback(request: Request, db: Session = Depends(get_db)):
-    print("there")
     try:
         token = await oauth.google.authorize_access_token(request)
     except OAuthError:
         raise HTTPException(status_code=400, detail="Google authentication failed")
-    print("1here")
+
     try:
         user_info = await oauth.google.parse_id_token(request, token)
     except KeyError:
-        # Если нет id_token, берем через userinfo endpoint
         resp = await oauth.google.get('userinfo', token=token)
         user_info = resp.json()
+
     email = user_info.get('email')
-    print("here")
     if not email:
         raise HTTPException(status_code=400, detail="Email not available from Google")
+
     user = db.query(User).filter(User.email == email).first()
     if not user:
         user = User(
@@ -158,30 +157,15 @@ async def auth_google_callback(request: Request, db: Session = Depends(get_db)):
         db.add(user)
         db.commit()
         db.refresh(user)
+
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(data={"sub": str(user.id)}, expires_delta=access_token_expires)
-    callback_url = request.session.get("callbackUrl")
-    if callback_url:
-        # Например, добавляем токен в качестве query-параметра
-        redirect_url = f"{callback_url}?access_token={access_token}&token_type=bearer"
-        return RedirectResponse(url=redirect_url)
-    """
-    Когда деплой то в куки сделаем
-    if callback_url:
-        response = RedirectResponse(url=callback_url)
-        # Set the token in an HTTP-only cookie instead of URL parameters.
-        response.set_cookie(
-            key="access_token",
-            value=access_token,
-            httponly=True,
-            max_age=ACCESS_TOKEN_EXPIRE_MINUTES * 60,  # cookie lifetime in seconds
-            secure=False,  # change to True in production with HTTPS
-            samesite="lax"  # or "none" if needed
-        )
-        return response
-    """
-    # Если callbackUrl не был передан – возвращаем JSON
-    return {"access_token": access_token, "token_type": "bearer"}
+
+    callback_url = request.session.get("callbackUrl", "/welcome")  
+    redirect_url = f"http://localhost:3000{callback_url}?token={access_token}"
+
+    return RedirectResponse(url=redirect_url)
+
 
 
 @app.get("/auth/github")
