@@ -1,7 +1,11 @@
+import os
+import subprocess
+
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi import Response
 from sqlalchemy.orm import Session
 from typing import List, Optional
-
+import tempfile
 import models
 import schemas
 from latex_template import generate_latex, generate_latex_from_complete_resume
@@ -569,14 +573,50 @@ def render_my_latex_cv(
         db: Session = Depends(get_db),
         current_user: models.User = Depends(get_current_user)
 ):
+    user = current_user
     resume_data = get_complete_resume(current_user.id, db)
     latex_output = generate_latex_from_complete_resume(resume_data)
-    return {"latex": latex_output}
+    tex_filename = f"resume_{user.id}.tex"
+    pdf_filename = f"resume_{user.id}.pdf"
+
+    with open(tex_filename, "w", encoding="utf-8") as f:
+        f.write(latex_output)
+
+    # Компилируем pdflatex
+    for _ in range(2):
+        subprocess.run(["pdflatex", "-interaction=nonstopmode", tex_filename], check=True)
+
+    with open(pdf_filename, "rb") as f:
+        pdf_data = f.read()
+
+    return Response(content=pdf_data, media_type="application/pdf")
 
 
 @router.post("/render/latex/public")
-def render_public_latex_cv(
-        resume_data: schemas.CompleteResume
-):
-    latex_output = generate_latex_from_complete_resume(resume_data)
-    return {"latex": latex_output}
+async def render_public_latex_cv(resume_data: schemas.CompleteResume):
+    # 1. Generate the .tex source
+    latex_src = generate_latex_from_complete_resume(resume_data)
+
+    # 2. Create a temp dir and write resume.tex
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tex_path = os.path.join(tmpdir, "resume.tex")
+        with open(tex_path, "w", encoding="utf-8") as f:
+            f.write(latex_src)
+
+        # 3. Run pdflatex (twice is often needed for refs/toc, but once is enough for simple CVs)
+        cmd = ["pdflatex", "-interaction=nonstopmode", "resume.tex"]
+        proc = subprocess.run(cmd, cwd=tmpdir, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        if proc.returncode != 0:
+            log = proc.stdout.decode("utf-8", errors="ignore") + "\n" + proc.stderr.decode("utf-8", errors="ignore")
+            raise HTTPException(status_code=500, detail=f"LaTeX compilation failed:\n{log}")
+
+        # 4. Read out the PDF
+        pdf_path = os.path.join(tmpdir, "resume.pdf")
+        if not os.path.exists(pdf_path):
+            raise HTTPException(status_code=500, detail="PDF not found after compilation.")
+
+        with open(pdf_path, "rb") as pdf_file:
+            pdf_bytes = pdf_file.read()
+
+    # 5. Return the PDF bytes
+    return Response(content=pdf_bytes, media_type="application/pdf")
