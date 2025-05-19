@@ -1,0 +1,582 @@
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
+from typing import List, Optional
+
+import models
+import schemas
+from latex_template import generate_latex, generate_latex_from_complete_resume
+from database import get_db
+from utils import get_current_user
+
+router = APIRouter()
+
+
+# ----- General Information Endpoints -----
+
+@router.post("/general/", response_model=schemas.GeneralRead)
+def create_general(
+        general_in: schemas.GeneralCreate,
+        db: Session = Depends(get_db),
+        current_user: models.User = Depends(get_current_user)
+):
+    # Check if general info already exists
+    existing = db.query(models.General).filter(models.General.user_id == current_user.id).first()
+    if existing:
+        # Update existing
+        for key, value in general_in.dict().items():
+            setattr(existing, key, value)
+        db.commit()
+        db.refresh(existing)
+        return existing
+
+    # Create new
+    general = models.General(**general_in.dict(), user_id=current_user.id)
+    db.add(general)
+    db.commit()
+    db.refresh(general)
+    return general
+
+
+@router.get("/general/", response_model=schemas.GeneralRead)
+def get_general(
+        db: Session = Depends(get_db),
+        current_user: models.User = Depends(get_current_user)
+):
+    general = db.query(models.General).filter(models.General.user_id == current_user.id).first()
+    if not general:
+        raise HTTPException(status_code=404, detail="General information not found")
+    return general
+
+
+@router.put("/general/", response_model=schemas.GeneralRead)
+def update_general(
+        general_in: schemas.GeneralUpdate,
+        db: Session = Depends(get_db),
+        current_user: models.User = Depends(get_current_user)
+):
+    general = db.query(models.General).filter(models.General.user_id == current_user.id).first()
+    if not general:
+        # Create if doesn't exist
+        general = models.General(**general_in.dict(), user_id=current_user.id)
+        db.add(general)
+    else:
+        # Update existing
+        for key, value in general_in.dict(exclude_unset=True).items():
+            setattr(general, key, value)
+
+    db.commit()
+    db.refresh(general)
+    return general
+
+
+# ----- Work Experience Endpoints -----
+
+@router.post("/work-experience/", response_model=schemas.WorkExperienceRead)
+def create_work_experience(
+        work_exp_in: schemas.WorkExperienceCreate,
+        db: Session = Depends(get_db),
+        current_user: models.User = Depends(get_current_user)
+):
+    work_exp = models.WorkExperience(**work_exp_in.dict(), user_id=current_user.id)
+    db.add(work_exp)
+    db.commit()
+    db.refresh(work_exp)
+    return work_exp
+
+
+@router.get("/work-experience/", response_model=List[schemas.WorkExperienceRead])
+def get_work_experiences(
+        db: Session = Depends(get_db),
+        current_user: models.User = Depends(get_current_user)
+):
+    work_exps = db.query(models.WorkExperience).filter(models.WorkExperience.user_id == current_user.id).all()
+    return work_exps
+
+
+@router.get("/work-experience/{work_exp_id}", response_model=schemas.WorkExperienceRead)
+def get_work_experience(
+        work_exp_id: int,
+        db: Session = Depends(get_db),
+        current_user: models.User = Depends(get_current_user)
+):
+    work_exp = db.query(models.WorkExperience).filter(
+        models.WorkExperience.id == work_exp_id,
+        models.WorkExperience.user_id == current_user.id
+    ).first()
+    if not work_exp:
+        raise HTTPException(status_code=404, detail="Work experience not found")
+    return work_exp
+
+
+@router.put("/work-experience/{work_exp_id}", response_model=schemas.WorkExperienceRead)
+def update_work_experience(
+        work_exp_id: int,
+        work_exp_in: schemas.WorkExperienceUpdate,
+        db: Session = Depends(get_db),
+        current_user: models.User = Depends(get_current_user)
+):
+    work_exp = db.query(models.WorkExperience).filter(
+        models.WorkExperience.id == work_exp_id,
+        models.WorkExperience.user_id == current_user.id
+    ).first()
+    if not work_exp:
+        raise HTTPException(status_code=404, detail="Work experience not found")
+
+    for key, value in work_exp_in.dict(exclude_unset=True).items():
+        setattr(work_exp, key, value)
+
+    db.commit()
+    db.refresh(work_exp)
+    return work_exp
+
+
+@router.delete("/work-experience/{work_exp_id}")
+def delete_work_experience(
+        work_exp_id: int,
+        db: Session = Depends(get_db),
+        current_user: models.User = Depends(get_current_user)
+):
+    work_exp = db.query(models.WorkExperience).filter(
+        models.WorkExperience.id == work_exp_id,
+        models.WorkExperience.user_id == current_user.id
+    ).first()
+    if not work_exp:
+        raise HTTPException(status_code=404, detail="Work experience not found")
+
+    db.delete(work_exp)
+    db.commit()
+    return {"message": "Work experience deleted"}
+
+
+# ----- Project Endpoints -----
+
+@router.post("/projects/", response_model=schemas.ProjectRead)
+def create_project(
+        project_in: schemas.ProjectCreate,
+        db: Session = Depends(get_db),
+        current_user: models.User = Depends(get_current_user)
+):
+    project = models.Project(**project_in.dict(), user_id=current_user.id)
+    db.add(project)
+    db.commit()
+    db.refresh(project)
+    return project
+
+
+@router.get("/projects/", response_model=List[schemas.ProjectRead])
+def get_projects(
+        db: Session = Depends(get_db),
+        current_user: models.User = Depends(get_current_user)
+):
+    projects = db.query(models.Project).filter(models.Project.user_id == current_user.id).all()
+    return projects
+
+
+@router.get("/projects/{project_id}", response_model=schemas.ProjectRead)
+def get_project(
+        project_id: int,
+        db: Session = Depends(get_db),
+        current_user: models.User = Depends(get_current_user)
+):
+    project = db.query(models.Project).filter(
+        models.Project.id == project_id,
+        models.Project.user_id == current_user.id
+    ).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    return project
+
+
+@router.put("/projects/{project_id}", response_model=schemas.ProjectRead)
+def update_project(
+        project_id: int,
+        project_in: schemas.ProjectUpdate,
+        db: Session = Depends(get_db),
+        current_user: models.User = Depends(get_current_user)
+):
+    project = db.query(models.Project).filter(
+        models.Project.id == project_id,
+        models.Project.user_id == current_user.id
+    ).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    for key, value in project_in.dict(exclude_unset=True).items():
+        setattr(project, key, value)
+
+    db.commit()
+    db.refresh(project)
+    return project
+
+
+@router.delete("/projects/{project_id}")
+def delete_project(
+        project_id: int,
+        db: Session = Depends(get_db),
+        current_user: models.User = Depends(get_current_user)
+):
+    project = db.query(models.Project).filter(
+        models.Project.id == project_id,
+        models.Project.user_id == current_user.id
+    ).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    db.delete(project)
+    db.commit()
+    return {"message": "Project deleted"}
+
+
+# ----- Education Endpoints -----
+
+@router.post("/education/", response_model=schemas.EducationRead)
+def create_education(
+        education_in: schemas.EducationCreate,
+        db: Session = Depends(get_db),
+        current_user: models.User = Depends(get_current_user)
+):
+    education = models.Education(**education_in.dict(), user_id=current_user.id)
+    db.add(education)
+    db.commit()
+    db.refresh(education)
+    return education
+
+
+@router.get("/education/", response_model=List[schemas.EducationRead])
+def get_educations(
+        db: Session = Depends(get_db),
+        current_user: models.User = Depends(get_current_user)
+):
+    educations = db.query(models.Education).filter(models.Education.user_id == current_user.id).all()
+    return educations
+
+
+@router.get("/education/{education_id}", response_model=schemas.EducationRead)
+def get_education(
+        education_id: int,
+        db: Session = Depends(get_db),
+        current_user: models.User = Depends(get_current_user)
+):
+    education = db.query(models.Education).filter(
+        models.Education.id == education_id,
+        models.Education.user_id == current_user.id
+    ).first()
+    if not education:
+        raise HTTPException(status_code=404, detail="Education not found")
+    return education
+
+
+@router.put("/education/{education_id}", response_model=schemas.EducationRead)
+def update_education(
+        education_id: int,
+        education_in: schemas.EducationUpdate,
+        db: Session = Depends(get_db),
+        current_user: models.User = Depends(get_current_user)
+):
+    education = db.query(models.Education).filter(
+        models.Education.id == education_id,
+        models.Education.user_id == current_user.id
+    ).first()
+    if not education:
+        raise HTTPException(status_code=404, detail="Education not found")
+
+    for key, value in education_in.dict(exclude_unset=True).items():
+        setattr(education, key, value)
+
+    db.commit()
+    db.refresh(education)
+    return education
+
+
+@router.delete("/education/{education_id}")
+def delete_education(
+        education_id: int,
+        db: Session = Depends(get_db),
+        current_user: models.User = Depends(get_current_user)
+):
+    education = db.query(models.Education).filter(
+        models.Education.id == education_id,
+        models.Education.user_id == current_user.id
+    ).first()
+    if not education:
+        raise HTTPException(status_code=404, detail="Education not found")
+
+    db.delete(education)
+    db.commit()
+    return {"message": "Education deleted"}
+
+
+# ----- Achievement Endpoints -----
+
+@router.post("/achievements/", response_model=schemas.AchievementRead)
+def create_achievement(
+        achievement_in: schemas.AchievementCreate,
+        db: Session = Depends(get_db),
+        current_user: models.User = Depends(get_current_user)
+):
+    achievement = models.Achievement(**achievement_in.dict(), user_id=current_user.id)
+    db.add(achievement)
+    db.commit()
+    db.refresh(achievement)
+    return achievement
+
+
+@router.get("/achievements/", response_model=List[schemas.AchievementRead])
+def get_achievements(
+        db: Session = Depends(get_db),
+        current_user: models.User = Depends(get_current_user)
+):
+    achievements = db.query(models.Achievement).filter(models.Achievement.user_id == current_user.id).all()
+    return achievements
+
+
+@router.get("/achievements/{achievement_id}", response_model=schemas.AchievementRead)
+def get_achievement(
+        achievement_id: int,
+        db: Session = Depends(get_db),
+        current_user: models.User = Depends(get_current_user)
+):
+    achievement = db.query(models.Achievement).filter(
+        models.Achievement.id == achievement_id,
+        models.Achievement.user_id == current_user.id
+    ).first()
+    if not achievement:
+        raise HTTPException(status_code=404, detail="Achievement not found")
+    return achievement
+
+
+@router.put("/achievements/{achievement_id}", response_model=schemas.AchievementRead)
+def update_achievement(
+        achievement_id: int,
+        achievement_in: schemas.AchievementUpdate,
+        db: Session = Depends(get_db),
+        current_user: models.User = Depends(get_current_user)
+):
+    achievement = db.query(models.Achievement).filter(
+        models.Achievement.id == achievement_id,
+        models.Achievement.user_id == current_user.id
+    ).first()
+    if not achievement:
+        raise HTTPException(status_code=404, detail="Achievement not found")
+
+    for key, value in achievement_in.dict(exclude_unset=True).items():
+        setattr(achievement, key, value)
+
+    db.commit()
+    db.refresh(achievement)
+    return achievement
+
+
+@router.delete("/achievements/{achievement_id}")
+def delete_achievement(
+        achievement_id: int,
+        db: Session = Depends(get_db),
+        current_user: models.User = Depends(get_current_user)
+):
+    achievement = db.query(models.Achievement).filter(
+        models.Achievement.id == achievement_id,
+        models.Achievement.user_id == current_user.id
+    ).first()
+    if not achievement:
+        raise HTTPException(status_code=404, detail="Achievement not found")
+
+    db.delete(achievement)
+    db.commit()
+    return {"message": "Achievement deleted"}
+
+
+# ----- Contact Endpoints -----
+
+@router.post("/contacts/", response_model=schemas.ContactRead)
+def create_contact(
+        contact_in: schemas.ContactCreate,
+        db: Session = Depends(get_db),
+        current_user: models.User = Depends(get_current_user)
+):
+    contact = models.Contact(**contact_in.dict(), user_id=current_user.id)
+    db.add(contact)
+    db.commit()
+    db.refresh(contact)
+    return contact
+
+
+@router.get("/contacts/", response_model=List[schemas.ContactRead])
+def get_contacts(
+        db: Session = Depends(get_db),
+        current_user: models.User = Depends(get_current_user)
+):
+    contacts = db.query(models.Contact).filter(models.Contact.user_id == current_user.id).all()
+    return contacts
+
+
+@router.get("/contacts/{contact_id}", response_model=schemas.ContactRead)
+def get_contact(
+        contact_id: int,
+        db: Session = Depends(get_db),
+        current_user: models.User = Depends(get_current_user)
+):
+    contact = db.query(models.Contact).filter(
+        models.Contact.id == contact_id,
+        models.Contact.user_id == current_user.id
+    ).first()
+    if not contact:
+        raise HTTPException(status_code=404, detail="Contact not found")
+    return contact
+
+
+@router.put("/contacts/{contact_id}", response_model=schemas.ContactRead)
+def update_contact(
+        contact_id: int,
+        contact_in: schemas.ContactUpdate,
+        db: Session = Depends(get_db),
+        current_user: models.User = Depends(get_current_user)
+):
+    contact = db.query(models.Contact).filter(
+        models.Contact.id == contact_id,
+        models.Contact.user_id == current_user.id
+    ).first()
+    if not contact:
+        raise HTTPException(status_code=404, detail="Contact not found")
+
+    for key, value in contact_in.dict(exclude_unset=True).items():
+        setattr(contact, key, value)
+
+    db.commit()
+    db.refresh(contact)
+    return contact
+
+
+@router.delete("/contacts/{contact_id}")
+def delete_contact(
+        contact_id: int,
+        db: Session = Depends(get_db),
+        current_user: models.User = Depends(get_current_user)
+):
+    contact = db.query(models.Contact).filter(
+        models.Contact.id == contact_id,
+        models.Contact.user_id == current_user.id
+    ).first()
+    if not contact:
+        raise HTTPException(status_code=404, detail="Contact not found")
+
+    db.delete(contact)
+    db.commit()
+    return {"message": "Contact deleted"}
+
+
+# ----- Skill Endpoints -----
+
+@router.post("/skills/", response_model=schemas.SkillRead)
+def create_skill(
+        skill_in: schemas.SkillCreate,
+        db: Session = Depends(get_db),
+        current_user: models.User = Depends(get_current_user)
+):
+    skill = models.Skill(**skill_in.dict(), user_id=current_user.id)
+    db.add(skill)
+    db.commit()
+    db.refresh(skill)
+    return skill
+
+
+@router.get("/skills/", response_model=List[schemas.SkillRead])
+def get_skills(
+        db: Session = Depends(get_db),
+        current_user: models.User = Depends(get_current_user)
+):
+    skills = db.query(models.Skill).filter(models.Skill.user_id == current_user.id).all()
+    return skills
+
+
+@router.get("/skills/{skill_id}", response_model=schemas.SkillRead)
+def get_skill(
+        skill_id: int,
+        db: Session = Depends(get_db),
+        current_user: models.User = Depends(get_current_user)
+):
+    skill = db.query(models.Skill).filter(
+        models.Skill.id == skill_id,
+        models.Skill.user_id == current_user.id
+    ).first()
+    if not skill:
+        raise HTTPException(status_code=404, detail="Skill not found")
+    return skill
+
+@router.put("/users/me/username", response_model=schemas.UserRead)
+def update_username(
+        username_update: schemas.UserUpdateUsername,
+        db: Session = Depends(get_db),
+        current_user: models.User = Depends(get_current_user)
+):
+    # Check if username is already taken
+    existing_user = db.query(models.User).filter(
+        models.User.username == username_update.username
+    ).first()
+
+    if existing_user and existing_user.id != current_user.id:
+        raise HTTPException(
+            status_code=400,
+            detail="Username already taken"
+        )
+
+    current_user.username = username_update.username
+    db.commit()
+    db.refresh(current_user)
+    return current_user
+
+
+@router.get("/users/me/full", response_model=schemas.CompleteResume)
+def get_my_full_info(
+        db: Session = Depends(get_db),
+        current_user: models.User = Depends(get_current_user)
+):
+    return get_complete_resume(current_user.id, db)
+
+
+@router.get("/users/{username}/full", response_model=schemas.CompleteResume)
+def get_full_info_by_username(
+        username: str,
+        db: Session = Depends(get_db)
+):
+    user = db.query(models.User).filter(models.User.username == username).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return get_complete_resume(user.id, db)
+
+
+def get_complete_resume(user_id: int, db: Session):
+    general = db.query(models.General).filter(models.General.user_id == user_id).first()
+    work_experiences = db.query(models.WorkExperience).filter(models.WorkExperience.user_id == user_id).all()
+    projects = db.query(models.Project).filter(models.Project.user_id == user_id).all()
+    education = db.query(models.Education).filter(models.Education.user_id == user_id).all()
+    achievements = db.query(models.Achievement).filter(models.Achievement.user_id == user_id).all()
+    skills = db.query(models.Skill).filter(models.Skill.user_id == user_id).all()
+    contacts = db.query(models.Contact).filter(models.Contact.user_id == user_id).all()
+
+    return schemas.CompleteResume(
+        general=general,
+        workExperience=work_experiences,
+        projects=projects,
+        education=education,
+        achievements=achievements,
+        skills=skills,
+        contacts=contacts
+    )
+
+
+@router.post("/render/latex/me")
+def render_my_latex_cv(
+        db: Session = Depends(get_db),
+        current_user: models.User = Depends(get_current_user)
+):
+    resume_data = get_complete_resume(current_user.id, db)
+    latex_output = generate_latex_from_complete_resume(resume_data)
+    return {"latex": latex_output}
+
+
+@router.post("/render/latex/public")
+def render_public_latex_cv(
+        resume_data: schemas.CompleteResume
+):
+    latex_output = generate_latex_from_complete_resume(resume_data)
+    return {"latex": latex_output}

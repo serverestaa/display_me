@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, Boolean
+from sqlalchemy import Column, Integer, String, ForeignKey, Boolean, Text
 from sqlalchemy.orm import relationship
 from database import Base
 
@@ -15,7 +15,17 @@ class User(Base):
 
     hashed_password = Column(String, nullable=True)
 
+    # Original relationships
     sections = relationship("Section", back_populates="owner")
+    
+    # New relationships
+    general = relationship("General", back_populates="user", uselist=False)
+    work_experiences = relationship("WorkExperience", back_populates="user")
+    projects = relationship("Project", back_populates="user")
+    education = relationship("Education", back_populates="user")
+    achievements = relationship("Achievement", back_populates="user")
+    contacts = relationship("Contact", back_populates="user")
+    skills = relationship("Skill", back_populates="user")
 
 
 class Section(Base):
@@ -46,3 +56,102 @@ class Block(Base):
     section_id = Column(Integer, ForeignKey("sections.id"), nullable=False)
 
     section = relationship("Section", back_populates="blocks")
+
+
+# New models for specific resume sections
+
+class General(Base):
+    __tablename__ = "general"
+
+    id = Column(Integer, primary_key=True, index=True)
+    username = Column(String, nullable=True)
+    fullName = Column(String, nullable=True)
+    occupation = Column(String, nullable=True)
+    location = Column(String, nullable=True)
+    website = Column(String, nullable=True)
+    about = Column(Text, nullable=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+
+    user = relationship("User", back_populates="general")
+
+
+class WorkExperience(Base):
+    __tablename__ = "work_experiences"
+
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String, nullable=True)
+    company = Column(String, nullable=True)
+    location = Column(String, nullable=True)
+    startDate = Column(String, nullable=True)
+    endDate = Column(String, nullable=True)
+    description = Column(Text, nullable=True)
+    url = Column(String, nullable=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+
+    user = relationship("User", back_populates="work_experiences")
+
+
+class Project(Base):
+    __tablename__ = "projects"
+
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String, nullable=True)
+    description = Column(Text, nullable=True)
+    startDate = Column(String, nullable=True)
+    endDate = Column(String, nullable=True)
+    url = Column(String, nullable=True)
+    stack = Column(String, nullable=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+
+    user = relationship("User", back_populates="projects")
+
+
+class Education(Base):
+    __tablename__ = "education"
+
+    id = Column(Integer, primary_key=True, index=True)
+    startDate = Column(String, nullable=True)
+    endDate = Column(String, nullable=True)
+    institution = Column(String, nullable=True)
+    degree = Column(String, nullable=True)
+    location = Column(String, nullable=True)
+    url = Column(String, nullable=True)
+    description = Column(Text, nullable=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+
+    user = relationship("User", back_populates="education")
+
+
+class Achievement(Base):
+    __tablename__ = "achievements"
+
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String, nullable=True)
+    description = Column(Text, nullable=True)
+    startDate = Column(String, nullable=True)
+    url = Column(String, nullable=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+
+    user = relationship("User", back_populates="achievements")
+
+
+class Contact(Base):
+    __tablename__ = "contacts"
+
+    id = Column(Integer, primary_key=True, index=True)
+    media = Column(String, nullable=True)
+    link = Column(String, nullable=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+
+    user = relationship("User", back_populates="contacts")
+
+
+class Skill(Base):
+    __tablename__ = "skills"
+
+    id = Column(Integer, primary_key=True, index=True)
+    category = Column(String, nullable=True)
+    stack = Column(String, nullable=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+
+    user = relationship("User", back_populates="skills")
