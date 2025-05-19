@@ -1,9 +1,12 @@
-def generate_latex(user, sections) -> str:
+from typing import Any, List
+import re
+
+
+def common_header() -> str:
     """
-    Генерирует LaTeX, подчиняясь формату Jake Gutierrez.
-    Предполагаем, что поля user и sections уже есть.
+    Возвращает общий преамбул LaTeX с макросами и началом документа.
     """
-    latex_header = r"""\documentclass[letterpaper,11pt]{article}
+    return r"""\documentclass[letterpaper,11pt]{article}
 
 \usepackage{latexsym}
 \usepackage{ifthen}
@@ -56,49 +59,26 @@ def generate_latex(user, sections) -> str:
 \newcommand{\resumeSubheading}[4]{
   \vspace{-2pt}\item
     \begin{tabular*}{0.97\textwidth}[t]{l@{\extracolsep{\fill}}r}
-      % Печатаем heading
-      \textbf{#1} & 
-      % Если есть location, печатаем его справа
-      \ifx&#2& 
-        % Если location пусто, проверяем дату
-        \ifx&#4& \\ % Если date тоже пусто, ничего не делаем
-        \else \textit{\small #4} \\ % Если date есть, выводим его справа
+      \textbf{#1} &
+      \ifx&##2&
+        \ifx&##4& \\
+        \else \textit{\small ##4} \\
         \fi
       \else
-        #2 \\ % Если location есть, выводим его
+        ##2 \\
       \fi
-      % Печатаем subheading и дату
-      \ifx&#3& % Если subheading пусто
-        \ifx&#4& % Если date пусто
-        \else \textit{\small #4} \\ % Если есть только date
+      \ifx&##3&
+        \ifx&##4&
+        \else \textit{\small ##4} \\
         \fi
       \else
-        \textit{\small #3} & 
-        % Проверяем, есть ли date
-        \ifx&#4& \\ % Если date пусто, ничего не выводим
-        \else \textit{\small #4} \\ % Если date есть, выводим
+        \textit{\small ##3} &
+        \ifx&##4& \\
+        \else \textit{\small ##4} \\
         \fi
       \fi
     \end{tabular*}\vspace{-7pt}
 }
-
-\newcommand{\resumeSubSubheading}[2]{
-    \item
-    \begin{tabular*}{0.97\textwidth}{l@{\extracolsep{\fill}}r}
-      \textit{\small#1} & \textit{\small #2} \\
-    \end{tabular*}\vspace{-7pt}
-}
-
-\newcommand{\resumeProjectHeading}[2]{
-    \item
-    \begin{tabular*}{0.97\textwidth}{l@{\extracolsep{\fill}}r}
-      \small#1 & #2 \\
-    \end{tabular*}\vspace{-7pt}
-}
-
-\newcommand{\resumeSubItem}[1]{\resumeItem{#1}\vspace{-4pt}}
-
-\renewcommand\labelitemii{$\vcenter{\hbox{\tiny$\bullet$}}$}
 
 \newcommand{\resumeSubHeadingListStart}{\begin{itemize}[leftmargin=0.15in, label={}]}
 \newcommand{\resumeSubHeadingListEnd}{\end{itemize}}
@@ -108,79 +88,224 @@ def generate_latex(user, sections) -> str:
 \begin{document}
 """
 
-    # Пример: выводим шапку
-    heading = (
-        r"\begin{center}" + "\n"
-        + rf"\textbf{{\Huge {escape(user.name)}}} \\ \vspace{{1pt}}" + "\n"
-        + rf"\small {escape(user.email)} $|$ {escape(user.linkedin)} $|$ {escape(user.github)}" + "\n"
-        + r"\end{center}" + "\n\n"
-    )
 
-    body = ""
-    active_sections = [s for s in sections if s.is_active]
-    sorted_sections = sorted(active_sections, key=lambda s: s.order)
-    for section in sorted_sections:
-        # Например, "Education"
-        if not section.blocks:
-            continue
-        body += f"\\section{{{escape(section.title)}}}\n"
-        body += "\\resumeSubHeadingListStart\n"
-
-        active_blocks = [b for b in section.blocks if b.is_active]
-        sorted_blocks = sorted(active_blocks, key=lambda b: b.order)
-
-        # Для каждого блока внутри секции
-        for block in sorted_blocks:
-            header     = escape(block.header or "")
-            location   = escape(block.location or "")
-            subheader  = escape(block.subheader or "")
-            dates      = escape(block.dates or "")
-
-            if not location and not subheader:
-                # Если нет location и subheader
-                body += f"\\resumeSubheading{{{header}}}{{{dates}}}{{}}{{}}\n"
-            elif not subheader:
-                # Если нет subheader
-                body += f"\\resumeSubheading{{{header}}}{{{location}}}{{}}{{{dates}}}\n"
-            elif not location:
-                # Если нет location
-                body += f"\\resumeSubheading{{{header}}}{{{dates}}}{{{subheader}}}{{}}\n"
-            else:
-                # Все параметры присутствуют
-                body += f"\\resumeSubheading{{{header}}}{{{location}}}{{{subheader}}}{{{dates}}}\n"
-
-            if block.description:
-                bullets = [b.strip() for b in block.description.split("•") if b.strip()]
-                body += "\\resumeItemListStart\n"
-                for bul in bullets:
-                    body += f"  \\resumeItem{{{escape(bul)}}}\n"
-                body += "\\resumeItemListEnd\n"
-
-        body += "\\resumeSubHeadingListEnd\n\n"
-
-    latex_footer = r"\end{document}"
-
-    return latex_header + heading + body + latex_footer
+def common_footer() -> str:
+    """
+    Возвращает окончание документа.
+    """
+    return r"\end{document}"
 
 
 def escape(s: str) -> str:
     """
-    Элементарное экранирование спецсимволов LaTeX
-    (%, _, $, &, {, }, ~, ^, \ и т.п.)
-    чтобы пользовательский ввод не ломал компиляцию.
+    Элементарное экранирование спецсимволов LaTeX.
     """
     replacements = {
         '\\': r'\\textbackslash{}',
-        '%': r'\%',
-        '$': r'\$',
-        '&': r'\&',
-        '#': r'\#',
-        '_': r'\_',
-        '{': r'\{',
-        '}': r'\}',
-        '~': r'\textasciitilde{}',
-        '^': r'\^{}',
+        '%': r'\\%',
+        '$': r'\\$',
+        '&': r'\\&',
+        '#': r'\\#',
+        '_': r'\\_',
+        '{': r'\\{',
+        '}': r'\\}',
+        '~': r'\\textasciitilde{}',
+        '^': r'\\^{}',
     }
     for old, new in replacements.items():
         s = s.replace(old, new)
     return s
+
+
+def safe(val: Any) -> str:
+    """
+    Безопасно экранирует строковое значение или возвращает пустую строку.
+    """
+    return escape(str(val)) if val else ""
+
+
+def _adapter_sections(user: Any, sections: List[Any]) -> str:
+    """
+    Собирает тело документа из свободных sections/blocks-моделей.
+    """
+    lines: List[str] = []
+    # Заголовок пользователя
+    lines.append(r"\begin{center}")
+    lines.append(rf"\textbf{{\Huge {escape(user.name)}}} \\\vspace{{1pt}}")
+    contacts = [escape(getattr(user, attr)) for attr in ('email', 'phone') if getattr(user, attr, None)]
+    if contacts:
+        lines.append(rf"\small {' $|$ '.join(contacts)}")
+    lines.append(r"\end{center}\n")
+
+    # Секции и блоки
+    active = [s for s in sections if getattr(s, 'is_active', True)]
+    sorted_sec = sorted(active, key=lambda s: getattr(s, 'order', 0))
+    for sec in sorted_sec:
+        blocks = [b for b in getattr(sec, 'blocks', []) if getattr(b, 'is_active', True)]
+        if not blocks:
+            continue
+        lines.append(rf"\section{{{escape(sec.title)}}}")
+        lines.append(r"\resumeSubHeadingListStart")
+        for b in sorted(blocks, key=lambda b: getattr(b, 'order', 0)):
+            header = escape(b.header or "")
+            loc = escape(b.location or "")
+            sub = escape(b.subheader or "")
+            dates = escape(b.dates or "")
+            lines.append(rf"\resumeSubheading{{{header}}}{{{loc}}}{{{sub}}}{{{dates}}}")
+            desc = getattr(b, 'description', '') or ''
+            items = [it.strip() for it in re.split(r'[\r\n]+|•', desc) if it.strip()]
+            if items:
+                lines.append(r"\resumeItemListStart")
+                for it in items:
+                    lines.append(rf"  \resumeItem{{{escape(it)}}}")
+                lines.append(r"\resumeItemListEnd")
+        lines.append(r"\resumeSubHeadingListEnd\n")
+
+    return "\n".join(lines)
+
+
+def _adapter_complete(resume: Any) -> str:
+    """
+    Собирает тело документа из типизированного резюме (CompleteResume).
+    """
+    lines: List[str] = []
+    # General header
+    gen = resume.general
+    if gen:
+        lines.append(r"\begin{center}")
+        lines.append(rf"\textbf{{\Huge {safe(gen.fullName)}}} \\")
+        parts = []
+        for attr in ('email', 'phone', 'website', 'location'):
+            val = getattr(gen, attr, None)
+            if val:
+                parts.append(safe(val))
+        if parts:
+            lines.append(rf"\small {' $|$ '.join(parts)}")
+        extra = []
+        for attr in ('github', 'linkedin', 'username'):
+            val = getattr(gen, attr, None)
+            if val:
+                extra.append(safe(val))
+        if extra:
+            lines.append(rf"\small {' $|$ '.join(extra)}")
+        if gen.occupation:
+            lines.append(rf"\textit{{{safe(gen.occupation)}}}")
+        if gen.about:
+            lines.append(rf"{safe(gen.about)}")
+        lines.append(r"\end{center}\n")
+
+    # Work Experience
+    if getattr(resume, 'workExperience', None):
+        lines.append(r"\section{Work Experience}")
+        lines.append(r"\resumeSubHeadingListStart")
+        for w in resume.workExperience:
+            dates = safe(w.startDate)
+            if getattr(w, 'endDate', None):
+                dates += f" -- {safe(w.endDate)}"
+            lines.append(rf"\resumeSubheading{{{safe(w.title)}}}{{{safe(w.company)}}}{{{safe(w.location)}}}{{{dates}}}")
+            desc = getattr(w, 'description', '') or ''
+            items = [it.strip() for it in re.split(r'[\r\n]+|•', desc) if it.strip()]
+            if items:
+                lines.append(r"\resumeItemListStart")
+                for it in items:
+                    lines.append(rf"  \resumeItem{{{escape(it)}}}")
+                lines.append(r"\resumeItemListEnd")
+        lines.append(r"\resumeSubHeadingListEnd\n")
+
+    # Projects
+    if getattr(resume, 'projects', None):
+        lines.append(r"\section{Projects}")
+        lines.append(r"\resumeSubHeadingListStart")
+        for p in resume.projects:
+            dates = safe(p.startDate)
+            if getattr(p, 'endDate', None):
+                dates += f" -- {safe(p.endDate)}"
+            lines.append(rf"\resumeSubheading{{{safe(p.title)}}}{{{safe(p.stack)}}}{{{safe(p.url)}}}{{{dates}}}")
+            desc = getattr(p, 'description', '') or ''
+            items = [it.strip() for it in re.split(r'[\r\n]+|•', desc) if it.strip()]
+            if items:
+                lines.append(r"\resumeItemListStart")
+                for it in items:
+                    lines.append(rf"  \resumeItem{{{escape(it)}}}")
+                lines.append(r"\resumeItemListEnd")
+        lines.append(r"\resumeSubHeadingListEnd\n")
+
+    # Education
+    if getattr(resume, 'education', None):
+        lines.append(r"\section{Education}")
+        lines.append(r"\resumeSubHeadingListStart")
+        for e in resume.education:
+            dates = safe(e.startDate)
+            if getattr(e, 'endDate', None):
+                dates += f" -- {safe(e.endDate)}"
+            lines.append(rf"\resumeSubheading{{{safe(e.institution)}}}{{{safe(e.location)}}}{{{safe(e.degree)}}}{{{dates}}}")
+            desc = getattr(e, 'description', '') or ''
+            items = [it.strip() for it in re.split(r'[\r\n]+|•', desc) if it.strip()]
+            if items:
+                lines.append(r"\resumeItemListStart")
+                for it in items:
+                    lines.append(rf"  \resumeItem{{{escape(it)}}}")
+                lines.append(r"\resumeItemListEnd")
+        lines.append(r"\resumeSubHeadingListEnd\n")
+
+    # Achievements
+    if getattr(resume, 'achievements', None):
+        lines.append(r"\section{Achievements}")
+        lines.append(r"\resumeSubHeadingListStart")
+        for a in resume.achievements:
+            dates = safe(a.startDate)
+            lines.append(rf"\resumeSubheading{{{safe(a.title)}}}{{{safe(a.url)}}}{{}}{{{dates}}}")
+            desc = getattr(a, 'description', '') or ''
+            items = [it.strip() for it in re.split(r'[\r\n]+|•', desc) if it.strip()]
+            if items:
+                lines.append(r"\resumeItemListStart")
+                for it in items:
+                    lines.append(rf"  \resumeItem{{{escape(it)}}}")
+                lines.append(r"\resumeItemListEnd")
+        lines.append(r"\resumeSubHeadingListEnd\n")
+
+    # Skills
+    if getattr(resume, 'skills', None):
+        lines.append(r"\section{Skills}")
+        lines.append(r"\resumeItemListStart")
+        for s in resume.skills:
+            parts = []
+            if getattr(s, 'category', None):
+                parts.append(safe(s.category))
+            if getattr(s, 'stack', None):
+                parts.append(safe(s.stack))
+            line = ", ".join(parts)
+            if line:
+                lines.append(rf"  \resumeItem{{{line}}}")
+        lines.append(r"\resumeItemListEnd\n")
+
+    # Contacts
+    if getattr(resume, 'contacts', None):
+        lines.append(r"\section{Contacts}")
+        lines.append(r"\resumeItemListStart")
+        for c in resume.contacts:
+            parts = []
+            if getattr(c, 'media', None):
+                parts.append(safe(c.media))
+            if getattr(c, 'link', None):
+                parts.append(safe(c.link))
+            line = ", ".join(parts)
+            if line:
+                lines.append(rf"  \resumeItem{{{line}}}")
+        lines.append(r"\resumeItemListEnd\n")
+
+    return "\n".join(lines)
+
+
+def generate_latex(user: Any, sections: List[Any]) -> str:
+    """
+    Генерирует LaTeX из свободных sections/blocks.
+    """
+    return common_header() + "\n" + _adapter_sections(user, sections) + "\n" + common_footer()
+
+
+def generate_latex_from_complete_resume(resume: Any) -> str:
+    """
+    Генерирует LaTeX из типизированного резюме CompleteResume.
+    """
+    return common_header() + "\n" + _adapter_complete(resume) + "\n" + common_footer()

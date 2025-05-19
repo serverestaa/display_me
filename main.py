@@ -1,5 +1,8 @@
 import os
 from dotenv import load_dotenv
+
+from utils import get_password_hash, verify_password, create_access_token, ACCESS_TOKEN_EXPIRE_MINUTES, get_current_user
+
 load_dotenv()
 import subprocess
 from datetime import datetime, timedelta
@@ -14,17 +17,18 @@ from fastapi import Request
 from passlib.context import CryptContext
 from jose import JWTError, jwt
 from starlette.middleware.sessions import SessionMiddleware
-from database import SessionLocal, engine, Base
+from database import SessionLocal, engine, Base, get_db
 import models
 import schemas
 from models import User, Section, Block
 from latex_template import generate_latex
 from fastapi.middleware.cors import CORSMiddleware
+from Resume_endpoints import router
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Resume Builder with JWT")
 app.add_middleware(SessionMiddleware, secret_key="YOUR_SUPER_SECRET_KEY")
-
+app.include_router(router, prefix="/resume", tags=["resume"])
 origins = [
     "http://localhost.tiangolo.com",
     "https://localhost.tiangolo.com",
@@ -41,64 +45,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-# ---------------------- Конфиг для JWT ----------------------
-SECRET_KEY = os.getenv("SECRET_KEY")
-ALGORITHM = os.getenv("ALGORITHM", "HS256")
-ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 60))
 
-# ---------------------- Подготовка паролей (passlib) ----------------------
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
-def get_password_hash(password: str) -> str:
-    return pwd_context.hash(password)
-
-def verify_password(plain_password, hashed_password) -> bool:
-    return pwd_context.verify(plain_password, hashed_password)
-
-# ---------------------- Создание/проверка токена ----------------------
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
-
-def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
-    to_encode = data.copy()
-    if expires_delta:
-        expire = datetime.utcnow() + expires_delta
-    else:
-        expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    to_encode.update({"exp": expire})
-    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
-
-
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
-
-def get_current_user(
-    token: str = Depends(oauth2_scheme),
-    db: Session = Depends(get_db),
-) -> User:
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials.",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        user_id: int = payload.get("sub")
-        if user_id is None:
-            raise credentials_exception
-    except JWTError:
-        raise credentials_exception
-
-    user = db.query(User).filter(User.id == user_id).first()
-    if user is None:
-        raise credentials_exception
-    return user
-
-# ---------------------- AUTH endpoints ----------------------
 @app.post("/auth/register", response_model=schemas.UserRead)
 def register_user(user_in: schemas.UserCreate, db: Session = Depends(get_db)):
     existing = db.query(User).filter(User.email == user_in.email).first()

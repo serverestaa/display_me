@@ -99,3 +99,183 @@ class SectionOrderUpdate(BaseModel):
 class BlockOrderUpdate(BaseModel):
     section_id: int  # ID секции, к которой относятся блоки
     order: List[int]  # Список ID блоков в новом порядке
+
+
+# ----- New schemas for specific resume sections -----
+
+# General Information
+class GeneralBase(BaseModel):
+    username: Optional[str] = None
+    fullName: Optional[str] = None
+    occupation: Optional[str] = None
+    location: Optional[str] = None
+    website: Optional[str] = None
+    about: Optional[str] = None
+
+
+class GeneralCreate(GeneralBase):
+    pass
+
+
+class GeneralUpdate(GeneralBase):
+    pass
+
+
+class GeneralRead(GeneralBase):
+    id: int
+
+    class Config:
+        orm_mode = True
+
+
+# Work Experience
+class WorkExperienceBase(BaseModel):
+    title: Optional[str] = None
+    company: Optional[str] = None
+    location: Optional[str] = None
+    startDate: Optional[str] = None
+    endDate: Optional[str] = None
+    description: Optional[str] = None
+    url: Optional[str] = None
+
+
+class WorkExperienceCreate(WorkExperienceBase):
+    pass
+
+
+class WorkExperienceUpdate(WorkExperienceBase):
+    pass
+
+
+class WorkExperienceRead(WorkExperienceBase):
+    id: int
+
+    class Config:
+        orm_mode = True
+
+
+# Project
+class ProjectBase(BaseModel):
+    title: Optional[str] = None
+    description: Optional[str] = None
+    startDate: Optional[str] = None
+    endDate: Optional[str] = None
+    url: Optional[str] = None
+    stack: Optional[str] = None
+
+
+class ProjectCreate(ProjectBase):
+    pass
+
+
+class ProjectUpdate(ProjectBase):
+    pass
+
+
+class ProjectRead(ProjectBase):
+    id: int
+
+    class Config:
+        orm_mode = True
+
+
+# Education
+class EducationBase(BaseModel):
+    startDate: Optional[str] = None
+    endDate: Optional[str] = None
+    institution: Optional[str] = None
+    degree: Optional[str] = None
+    location: Optional[str] = None
+    url: Optional[str] = None
+    description: Optional[str] = None
+
+
+class EducationCreate(EducationBase):
+    pass
+
+
+class EducationUpdate(EducationBase):
+    pass
+
+
+class EducationRead(EducationBase):
+    id: int
+
+    class Config:
+        orm_mode = True
+
+
+# Achievement
+class AchievementBase(BaseModel):
+    title: Optional[str] = None
+    description: Optional[str] = None
+    startDate: Optional[str] = None
+    url: Optional[str] = None
+
+
+class AchievementCreate(AchievementBase):
+    pass
+
+
+class AchievementUpdate(AchievementBase):
+    pass
+
+
+class AchievementRead(AchievementBase):
+    id: int
+
+    class Config:
+        orm_mode = True
+
+
+# Contact
+class ContactBase(BaseModel):
+    media: Optional[str] = None
+    link: Optional[str] = None
+
+
+class ContactCreate(ContactBase):
+    pass
+
+
+class ContactUpdate(ContactBase):
+    pass
+
+
+class ContactRead(ContactBase):
+    id: int
+
+    class Config:
+        orm_mode = True
+
+
+# Skill
+class SkillBase(BaseModel):
+    category: Optional[str] = None
+    stack: Optional[str] = None
+
+
+class SkillCreate(SkillBase):
+    pass
+
+
+class SkillUpdate(SkillBase):
+    pass
+
+
+class SkillRead(SkillBase):
+    id: int
+
+    class Config:
+        orm_mode = True
+
+
+# Complete Resume for non-logged-in users
+class CompleteResume(BaseModel):
+    general: Optional[GeneralRead] = None
+    workExperience: List[WorkExperienceRead] = []
+    projects: List[ProjectRead] = []
+    education: List[EducationRead] = []
+    achievements: List[AchievementRead] = []
+    skills: List[SkillRead] = []
+    contacts: List[ContactRead] = []
