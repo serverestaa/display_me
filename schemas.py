@@ -14,7 +14,7 @@ class UserCreate(BaseModel):
     phone: Optional[str] = None
     linkedin: Optional[str] = None
     github: Optional[str] = None
-
+    photo_url: Optional[str] = None
 
 class UserRead(BaseModel):
     id: int
@@ -24,12 +24,23 @@ class UserRead(BaseModel):
     phone: Optional[str]
     linkedin: Optional[str]
     github: Optional[str]
-
+    photo_url: Optional[str] = None
     class Config:
         orm_mode = True
 
 class UserUpdateUsername(BaseModel):
     username: str
+
+
+class UserUpdateProfile(BaseModel):
+    name: Optional[str] = None
+    phone: Optional[str] = None
+    linkedin: Optional[str] = None
+    github: Optional[str] = None
+    photo_url: Optional[str] = None
+
+    class Config:
+        orm_mode = True
 # ----- Auth -----
 
 class Token(BaseModel):
@@ -125,7 +136,7 @@ class GeneralRead(GeneralBase):
     id: int
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 # Work Experience
@@ -151,7 +162,7 @@ class WorkExperienceRead(WorkExperienceBase):
     id: int
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 # Project
@@ -176,7 +187,7 @@ class ProjectRead(ProjectBase):
     id: int
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 # Education
@@ -202,8 +213,7 @@ class EducationRead(EducationBase):
     id: int
 
     class Config:
-        orm_mode = True
-
+        from_attributes = True
 
 # Achievement
 class AchievementBase(BaseModel):
@@ -225,7 +235,7 @@ class AchievementRead(AchievementBase):
     id: int
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 # Contact
@@ -246,7 +256,7 @@ class ContactRead(ContactBase):
     id: int
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 # Skill
@@ -267,7 +277,7 @@ class SkillRead(SkillBase):
     id: int
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 # Complete Resume for non-logged-in users
@@ -279,3 +289,6 @@ class CompleteResume(BaseModel):
     achievements: List[AchievementRead] = []
     skills: List[SkillRead] = []
     contacts: List[ContactRead] = []
+
+    class Config:
+        from_attributes = True

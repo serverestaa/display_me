@@ -1,4 +1,7 @@
 import os
+from pathlib import Path
+from uuid import uuid4
+
 from dotenv import load_dotenv
 
 from utils import get_password_hash, verify_password, create_access_token, ACCESS_TOKEN_EXPIRE_MINUTES, get_current_user
@@ -7,7 +10,7 @@ load_dotenv()
 import subprocess
 from datetime import datetime, timedelta
 from typing import Optional
-from fastapi import Response
+from fastapi import Response, UploadFile, File
 from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from fastapi.responses import RedirectResponse
@@ -24,10 +27,12 @@ from models import User, Section, Block
 from latex_template import generate_latex
 from fastapi.middleware.cors import CORSMiddleware
 from Resume_endpoints import router
+from fastapi.staticfiles import StaticFiles
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Resume Builder with JWT")
 app.add_middleware(SessionMiddleware, secret_key="YOUR_SUPER_SECRET_KEY")
+app.mount("/static", StaticFiles(directory="static"), name="static")
 app.include_router(router, prefix="/resume", tags=["resume"])
 origins = [
     "http://localhost.tiangolo.com",
@@ -37,6 +42,7 @@ origins = [
     "http://localhost:8080",
     "http://localhost:8000",
     "https://www.displayme.online"
+    "https://v2.displayme.online"
 ]
 
 app.add_middleware(
@@ -152,11 +158,56 @@ async def auth_google_callback(request: Request, db: Session = Depends(get_db)):
         user = User(
             email=email,
             hashed_password="",
-            name=user_info.get('name', '')
+            name=user_info.get('name', ''),
+            photo_url=user_info.get('picture')
         )
         db.add(user)
         db.commit()
         db.refresh(user)
+        # Ensure the user's General info has a fullName
+        general = db.query(models.General).filter(models.General.user_id == user.id).first()
+        if general:
+            if not general.fullName:
+                general.fullName = user_info.get('name')
+                db.commit()
+        else:
+            # Create a General record with fullName from Google
+            general = models.General(
+                username=user.username,
+                fullName=user_info.get('name'),
+                occupation=None,
+                location=None,
+                website=None,
+                about=None,
+                user_id=user.id
+            )
+            db.add(general)
+            db.commit()
+    else:
+        # Update existing user’s name and photo on Google login
+        user.name = user_info.get('name', '')
+        user.photo_url = user_info.get('picture')
+        db.commit()
+        db.refresh(user)
+        # Ensure the user's General info has a fullName
+        general = db.query(models.General).filter(models.General.user_id == user.id).first()
+        if general:
+            if not general.fullName:
+                general.fullName = user_info.get('name')
+                db.commit()
+        else:
+            # Create a General record with fullName from Google
+            general = models.General(
+                username=user.username,
+                fullName=user_info.get('name'),
+                occupation=None,
+                location=None,
+                website=None,
+                about=None,
+                user_id=user.id
+            )
+            db.add(general)
+            db.commit()
 
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(data={"sub": str(user.id)}, expires_delta=access_token_expires)
@@ -205,12 +256,47 @@ async def auth_github_callback(request: Request, db: Session = Depends(get_db)):
     return {"access_token": access_token, "token_type": "bearer"}
 
 # ---------------------- USER endpoints ----------------------
-
+@app.put("/users/me", response_model=schemas.UserRead)
+def update_user_profile(
+    user_in: schemas.UserUpdateProfile,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    # Only overwrite the fields that were provided
+    for attr, value in user_in.dict(exclude_unset=True).items():
+        setattr(current_user, attr, value)
+    db.commit()
+    db.refresh(current_user)
+    return current_user
 @app.get("/users/me", response_model=schemas.UserRead)
 def read_users_me(current_user: User = Depends(get_current_user)):
     return current_user
 
+@app.post("/users/me/photo", response_model=schemas.UserRead)
+def upload_user_photo(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    # Убедиться, что директория есть
+    upload_dir = Path("static/uploads")
+    upload_dir.mkdir(parents=True, exist_ok=True)
 
+    # Сгенерировать уникальное имя
+    ext = Path(file.filename).suffix
+    filename = f"{current_user.id}_{uuid4().hex}{ext}"
+    dest = upload_dir / filename
+
+    # Сохранить файл
+    with open(dest, "wb") as out:
+        out.write(file.file.read())
+
+    # Обновить URL в базе
+    current_user.photo_url = f"/static/uploads/{filename}"
+    db.commit()
+    db.refresh(current_user)
+
+    return current_user
 # ---------------------- USERNAME ENDPOINTS ----------------------
 @app.put("/users/me/username", response_model=schemas.UserRead)
 def update_username(

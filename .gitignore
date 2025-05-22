@@ -65,3 +65,12 @@ frontend/node_modules/
 
 gunicorn*.log
 .qodo
+test.db
+resume_1.aux
+resume_1.out
+resume_1.tex
+resume_1.log
+resume_1.pdf
+.gitignore
+docker-compose.yml
+Dockerfile

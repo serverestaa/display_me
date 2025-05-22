@@ -48,7 +48,16 @@ def get_general(
 ):
     general = db.query(models.General).filter(models.General.user_id == current_user.id).first()
     if not general:
-        raise HTTPException(status_code=404, detail="General information not found")
+        general = models.General(username = current_user.username,
+            fullName = None,
+            occupation = None,
+            location = None,
+            website = None,
+            about = None,
+            user_id = current_user.id)
+        db.add(general)
+        db.commit()
+        db.refresh(general)
     return general
 
 
@@ -506,6 +515,28 @@ def get_skill(
         raise HTTPException(status_code=404, detail="Skill not found")
     return skill
 
+
+@router.put("/skills/{skill_id}", response_model=schemas.SkillRead)
+def update_skill(
+        skill_id: int,
+        skill_in: schemas.SkillUpdate,
+        db: Session = Depends(get_db),
+        current_user: models.User = Depends(get_current_user)
+):
+    skill = db.query(models.Skill).filter(
+        models.Skill.id == skill_id,
+        models.Skill.user_id == current_user.id
+    ).first()
+    if not skill:
+        raise HTTPException(status_code=404, detail="Skill not found")
+
+    for key, value in skill_in.dict(exclude_unset=True).items():
+        setattr(skill, key, value)
+
+    db.commit()
+    db.refresh(skill)
+    return skill
+
 @router.put("/users/me/username", response_model=schemas.UserRead)
 def update_username(
         username_update: schemas.UserUpdateUsername,
@@ -558,13 +589,13 @@ def get_complete_resume(user_id: int, db: Session):
     contacts = db.query(models.Contact).filter(models.Contact.user_id == user_id).all()
 
     return schemas.CompleteResume(
-        general=general,
-        workExperience=work_experiences,
-        projects=projects,
-        education=education,
-        achievements=achievements,
-        skills=skills,
-        contacts=contacts
+        general=schemas.GeneralRead.from_orm(general) if general else None,
+        workExperience=[schemas.WorkExperienceRead.from_orm(w) for w in work_experiences],
+        projects=[schemas.ProjectRead.from_orm(p) for p in projects],
+        education=[schemas.EducationRead.from_orm(e) for e in education],
+        achievements=[schemas.AchievementRead.from_orm(a) for a in achievements],
+        skills=[schemas.SkillRead.from_orm(s) for s in skills],
+        contacts=[schemas.ContactRead.from_orm(c) for c in contacts],
     )
 
 

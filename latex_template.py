@@ -1,5 +1,6 @@
 from typing import Any, List
 import re
+from bs4 import BeautifulSoup
 
 
 def common_header() -> str:
@@ -7,7 +8,9 @@ def common_header() -> str:
     Возвращает общий преамбул LaTeX с макросами и началом документа.
     """
     return r"""\documentclass[letterpaper,11pt]{article}
-
+\usepackage[utf8]{inputenc}
+\usepackage[T2A]{fontenc}
+\usepackage{lmodern}
 \usepackage{latexsym}
 \usepackage{ifthen}
 \usepackage[empty]{fullpage}
@@ -18,7 +21,7 @@ def common_header() -> str:
 \usepackage{enumitem}
 \usepackage[hidelinks]{hyperref}
 \usepackage{fancyhdr}
-\usepackage[english]{babel}
+\usepackage[english,russian]{babel}
 \usepackage{tabularx}
 \input{glyphtounicode}
 
@@ -60,21 +63,21 @@ def common_header() -> str:
   \vspace{-2pt}\item
     \begin{tabular*}{0.97\textwidth}[t]{l@{\extracolsep{\fill}}r}
       \textbf{#1} &
-      \ifx&##2&
-        \ifx&##4& \\
-        \else \textit{\small ##4} \\
+      \ifx&#2&
+        \ifx&#4& \\
+        \else \textit{\small #4} \\
         \fi
       \else
-        ##2 \\
+        #2 \\
       \fi
-      \ifx&##3&
-        \ifx&##4&
-        \else \textit{\small ##4} \\
+      \ifx&#3&
+        \ifx&#4&
+        \else \textit{\small #4} \\
         \fi
       \else
-        \textit{\small ##3} &
-        \ifx&##4& \\
-        \else \textit{\small ##4} \\
+        \textit{\small #3} &
+        \ifx&#4& \\
+        \else \textit{\small #4} \\
         \fi
       \fi
     \end{tabular*}\vspace{-7pt}
@@ -101,16 +104,16 @@ def escape(s: str) -> str:
     Элементарное экранирование спецсимволов LaTeX.
     """
     replacements = {
-        '\\': r'\\textbackslash{}',
-        '%': r'\\%',
-        '$': r'\\$',
-        '&': r'\\&',
-        '#': r'\\#',
-        '_': r'\\_',
-        '{': r'\\{',
-        '}': r'\\}',
-        '~': r'\\textasciitilde{}',
-        '^': r'\\^{}',
+        '\\': r'\textbackslash{}',
+        '%': r'\%',
+        '$': r'\$',
+        '&': r'\&',
+        '#': r'\#',
+        '_': r'\_',
+        '{': r'\{',
+        '}': r'\}',
+        '~': r'\textasciitilde{}',
+        '^': r'\^{}',
     }
     for old, new in replacements.items():
         s = s.replace(old, new)
@@ -122,6 +125,28 @@ def safe(val: Any) -> str:
     Безопасно экранирует строковое значение или возвращает пустую строку.
     """
     return escape(str(val)) if val else ""
+
+
+def html_to_latex(html: str) -> str:
+    """
+    Convert simple HTML (paragraphs and lists) into LaTeX code.
+    """
+    soup = BeautifulSoup(html or "", "html.parser")
+    lines = []
+    for el in soup.contents:
+        if getattr(el, "name", None) == "p":
+            text = el.get_text(strip=True)
+            if text:
+                lines.append(text)
+        elif getattr(el, "name", None) in ("ul", "ol"):
+            env = "itemize" if el.name == "ul" else "enumerate"
+            lines.append(r"\begin{" + env + "}")
+            for li in el.find_all("li", recursive=False):
+                inner = li.get_text(strip=True)
+                if inner:
+                    lines.append(r"\item " + escape(inner))
+            lines.append(r"\end{" + env + "}")
+    return "\n".join(lines)
 
 
 def _adapter_sections(user: Any, sections: List[Any]) -> str:
@@ -153,11 +178,11 @@ def _adapter_sections(user: Any, sections: List[Any]) -> str:
             dates = escape(b.dates or "")
             lines.append(rf"\resumeSubheading{{{header}}}{{{loc}}}{{{sub}}}{{{dates}}}")
             desc = getattr(b, 'description', '') or ''
-            items = [it.strip() for it in re.split(r'[\r\n]+|•', desc) if it.strip()]
-            if items:
+            latex_body = html_to_latex(desc)
+            if latex_body:
                 lines.append(r"\resumeItemListStart")
-                for it in items:
-                    lines.append(rf"  \resumeItem{{{escape(it)}}}")
+                for line in latex_body.split("\n"):
+                    lines.append(rf"  \resumeItem{{{line}}}")
                 lines.append(r"\resumeItemListEnd")
         lines.append(r"\resumeSubHeadingListEnd")
 
@@ -182,7 +207,7 @@ def _adapter_complete(resume: Any) -> str:
         if parts:
             lines.append(rf"\small {' $|$ '.join(parts)}")
         extra = []
-        for attr in ('github', 'linkedin', 'username'):
+        for attr in ('github', 'linkedin'):
             val = getattr(gen, attr, None)
             if val:
                 extra.append(safe(val))
@@ -190,8 +215,6 @@ def _adapter_complete(resume: Any) -> str:
             lines.append(rf"\small {' $|$ '.join(extra)}")
         if gen.occupation:
             lines.append(rf"\textit{{{safe(gen.occupation)}}}")
-        if gen.about:
-            lines.append(rf"{safe(gen.about)}")
         lines.append(r"\end{center}")
 
     # Work Experience

@@ -12,7 +12,7 @@ class User(Base):
     email = Column(String, nullable=True, unique=True)  # сделаем уникальным
     linkedin = Column(String, nullable=True)
     github = Column(String, nullable=True)
-
+    photo_url = Column(String, nullable=True)
     hashed_password = Column(String, nullable=True)
 
     # Original relationships
