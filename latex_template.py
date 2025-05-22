@@ -40,7 +40,7 @@ def common_header() -> str:
 
 \urlstyle{same}
 
-\raggedbottom
+\raggedbottom   
 \raggedright
 \setlength{\tabcolsep}{0in}
 
@@ -59,34 +59,33 @@ def common_header() -> str:
   }
 }
 
-\newcommand{\resumeSubheading}[4]{
+\newcommand{\resumeSubheading}[4]{%
   \vspace{-2pt}\item
     \begin{tabular*}{0.97\textwidth}[t]{l@{\extracolsep{\fill}}r}
-      \textbf{#1} &
-      \ifx&#2&
-        \ifx&#4& \\
-        \else \textit{\small #4} \\
-        \fi
-      \else
-        #2 \\
-      \fi
-      \ifx&#3&
-        \ifx&#4&
-        \else \textit{\small #4} \\
-        \fi
-      \else
-        \textit{\small #3} &
-        \ifx&#4& \\
-        \else \textit{\small #4} \\
-        \fi
-      \fi
+      \textbf{#1} & #2 \\
+      \textit{\small#3} & \textit{\small #4} \\
     \end{tabular*}\vspace{-7pt}
 }
 
-\newcommand{\resumeSubHeadingListStart}{\begin{itemize}[leftmargin=0.15in, label={}]}
-\newcommand{\resumeSubHeadingListEnd}{\end{itemize}}
+\renewcommand\labelitemii{$\vcenter{\hbox{\tiny$\bullet$}}$}
 \newcommand{\resumeItemListStart}{\begin{itemize}}
 \newcommand{\resumeItemListEnd}{\end{itemize}\vspace{-5pt}}
+\newcommand{\resumeSubHeadingListStart}{\begin{itemize}[leftmargin=0.15in, label={}]}
+\newcommand{\resumeSubHeadingListEnd}{\end{itemize}}
+
+\newcommand{\resumeSubSubheading}[2]{%
+    \item
+    \begin{tabular*}{0.97\textwidth}{l@{\extracolsep{\fill}}r}
+      \textit{\small#1} & \textit{\small #2} \\
+    \end{tabular*}\vspace{-7pt}
+}
+\newcommand{\resumeProjectHeading}[2]{%
+    \item
+    \begin{tabular*}{0.97\textwidth}{l@{\extracolsep{\fill}}r}
+      \small#1 & #2 \\
+    \end{tabular*}\vspace{-7pt}
+}
+\newcommand{\resumeSubItem}[1]{\resumeItem{#1}\vspace{-4pt}}
 
 \begin{document}
 """
@@ -139,13 +138,11 @@ def html_to_latex(html: str) -> str:
             if text:
                 lines.append(text)
         elif getattr(el, "name", None) in ("ul", "ol"):
-            env = "itemize" if el.name == "ul" else "enumerate"
-            lines.append(r"\begin{" + env + "}")
+            # Extract raw text from each <li> without LaTeX environment wrappers
             for li in el.find_all("li", recursive=False):
                 inner = li.get_text(strip=True)
                 if inner:
-                    lines.append(r"\item " + escape(inner))
-            lines.append(r"\end{" + env + "}")
+                    lines.append(inner)
     return "\n".join(lines)
 
 
@@ -227,11 +224,11 @@ def _adapter_complete(resume: Any) -> str:
                 dates += f" -- {safe(w.endDate)}"
             lines.append(rf"\resumeSubheading{{{safe(w.title)}}}{{{safe(w.company)}}}{{{safe(w.location)}}}{{{dates}}}")
             desc = getattr(w, 'description', '') or ''
-            items = [it.strip() for it in re.split(r'[\r\n]+|•', desc) if it.strip()]
-            if items:
+            latex_body = html_to_latex(desc)
+            if latex_body:
                 lines.append(r"\resumeItemListStart")
-                for it in items:
-                    lines.append(rf"  \resumeItem{{{escape(it)}}}")
+                for line in latex_body.split("\n"):
+                    lines.append(rf"  \resumeItem{{{escape(line)}}}")
                 lines.append(r"\resumeItemListEnd")
         lines.append(r"\resumeSubHeadingListEnd")
 
@@ -245,11 +242,11 @@ def _adapter_complete(resume: Any) -> str:
                 dates += f" -- {safe(p.endDate)}"
             lines.append(rf"\resumeSubheading{{{safe(p.title)}}}{{{safe(p.stack)}}}{{{safe(p.url)}}}{{{dates}}}")
             desc = getattr(p, 'description', '') or ''
-            items = [it.strip() for it in re.split(r'[\r\n]+|•', desc) if it.strip()]
-            if items:
+            latex_body = html_to_latex(desc)
+            if latex_body:
                 lines.append(r"\resumeItemListStart")
-                for it in items:
-                    lines.append(rf"  \resumeItem{{{escape(it)}}}")
+                for line in latex_body.split("\n"):
+                    lines.append(rf"  \resumeItem{{{escape(line)}}}")
                 lines.append(r"\resumeItemListEnd")
         lines.append(r"\resumeSubHeadingListEnd")
 
@@ -263,11 +260,11 @@ def _adapter_complete(resume: Any) -> str:
                 dates += f" -- {safe(e.endDate)}"
             lines.append(rf"\resumeSubheading{{{safe(e.institution)}}}{{{safe(e.location)}}}{{{safe(e.degree)}}}{{{dates}}}")
             desc = getattr(e, 'description', '') or ''
-            items = [it.strip() for it in re.split(r'[\r\n]+|•', desc) if it.strip()]
-            if items:
+            latex_body = html_to_latex(desc)
+            if latex_body:
                 lines.append(r"\resumeItemListStart")
-                for it in items:
-                    lines.append(rf"  \resumeItem{{{escape(it)}}}")
+                for line in latex_body.split("\n"):
+                    lines.append(rf"  \resumeItem{{{escape(line)}}}")
                 lines.append(r"\resumeItemListEnd")
         lines.append(r"\resumeSubHeadingListEnd")
 
@@ -279,11 +276,11 @@ def _adapter_complete(resume: Any) -> str:
             dates = safe(a.startDate)
             lines.append(rf"\resumeSubheading{{{safe(a.title)}}}{{{safe(a.url)}}}{{}}{{{dates}}}")
             desc = getattr(a, 'description', '') or ''
-            items = [it.strip() for it in re.split(r'[\r\n]+|•', desc) if it.strip()]
-            if items:
+            latex_body = html_to_latex(desc)
+            if latex_body:
                 lines.append(r"\resumeItemListStart")
-                for it in items:
-                    lines.append(rf"  \resumeItem{{{escape(it)}}}")
+                for line in latex_body.split("\n"):
+                    lines.append(rf"  \resumeItem{{{escape(line)}}}")
                 lines.append(r"\resumeItemListEnd")
         lines.append(r"\resumeSubHeadingListEnd")
 
