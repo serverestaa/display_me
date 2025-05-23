@@ -66,7 +66,7 @@ def common_header() -> str:
 }
 
 \renewcommand\labelitemii{$\vcenter{\hbox{\tiny$\bullet$}}$}
-\newcommand{\resumeItemListStart}{\begin{itemize}[itemsep=2pt,topsep=2pt,parsep=1pt,leftmargin=*]}
+\newcommand{\resumeItemListStart}{\begin{itemize}[leftmargin=0.26in, itemsep=2pt,topsep=2pt,parsep=1pt]}
 \newcommand{\resumeItemListEnd}{\end{itemize}\vspace{-5pt}}
 \newcommand{\resumeSubHeadingListStart}{\begin{itemize}[leftmargin=0.15in, label={}]}
 \newcommand{\resumeSubHeadingListEnd}{\end{itemize}}
@@ -228,6 +228,27 @@ def _adapter_complete(resume: Any) -> str:
         if gen.occupation:
             lines.append(rf"\textit{{{safe(gen.occupation)}}}")
         lines.append(r"\end{center}")
+    # Education
+    if getattr(resume, 'education', None):
+        lines.append(r"\section{Education}")
+        lines.append(r"\resumeSubHeadingListStart")
+        for e in resume.education:
+            dates = safe(e.startDate)
+            if getattr(e, 'endDate', None):
+                dates += f" -- {safe(e.endDate)}"
+            inst_link = safe(e.institution)
+            if getattr(e, 'url', None):
+                u = safe(e.url)
+                inst_link = r"\href{" + u + "}{" + inst_link + "}"
+            lines.append(rf"\resumeSubheading{{{inst_link}}}{{{safe(e.location)}}}{{{safe(e.degree)}}}{{{dates}}}")
+            desc = getattr(e, 'description', '') or ''
+            latex_body = html_to_latex(desc)
+            if latex_body:
+                lines.append(r"\resumeItemListStart")
+                for line in latex_body.split("\n"):
+                    lines.append(rf"  \resumeItem{{{line}}}")
+                lines.append(r"\resumeItemListEnd")
+        lines.append(r"\resumeSubHeadingListEnd")
 
     # Work Experience
     if getattr(resume, 'workExperience', None):
@@ -272,28 +293,6 @@ def _adapter_complete(resume: Any) -> str:
                 proj_text += " | " + safe(p.stack)
             lines.append(rf"\resumeProjectHeading{{{proj_text}}}{{{dates}}}")
             desc = getattr(p, 'description', '') or ''
-            latex_body = html_to_latex(desc)
-            if latex_body:
-                lines.append(r"\resumeItemListStart")
-                for line in latex_body.split("\n"):
-                    lines.append(rf"  \resumeItem{{{line}}}")
-                lines.append(r"\resumeItemListEnd")
-        lines.append(r"\resumeSubHeadingListEnd")
-
-    # Education
-    if getattr(resume, 'education', None):
-        lines.append(r"\section{Education}")
-        lines.append(r"\resumeSubHeadingListStart")
-        for e in resume.education:
-            dates = safe(e.startDate)
-            if getattr(e, 'endDate', None):
-                dates += f" -- {safe(e.endDate)}"
-            inst_link = safe(e.institution)
-            if getattr(e, 'url', None):
-                u = safe(e.url)
-                inst_link = r"\href{" + u + "}{" + inst_link + "}"
-            lines.append(rf"\resumeSubheading{{{inst_link}}}{{{safe(e.location)}}}{{{safe(e.degree)}}}{{{dates}}}")
-            desc = getattr(e, 'description', '') or ''
             latex_body = html_to_latex(desc)
             if latex_body:
                 lines.append(r"\resumeItemListStart")
