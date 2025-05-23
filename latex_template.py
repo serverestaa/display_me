@@ -1,6 +1,6 @@
 from typing import Any, List
 import re
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, NavigableString, Tag
 
 
 def common_header() -> str:
@@ -8,11 +8,7 @@ def common_header() -> str:
     Возвращает общий преамбул LaTeX с макросами и началом документа.
     """
     return r"""\documentclass[letterpaper,11pt]{article}
-\usepackage[utf8]{inputenc}
-\usepackage[T2A]{fontenc}
-\usepackage{lmodern}
 \usepackage{latexsym}
-\usepackage{ifthen}
 \usepackage[empty]{fullpage}
 \usepackage{titlesec}
 \usepackage{marvosym}
@@ -21,8 +17,10 @@ def common_header() -> str:
 \usepackage{enumitem}
 \usepackage[hidelinks]{hyperref}
 \usepackage{fancyhdr}
-\usepackage[english,russian]{babel}
 \usepackage{tabularx}
+\usepackage[T2A]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[russian,english]{babel}
 \input{glyphtounicode}
 
 \pagestyle{fancy}
@@ -68,7 +66,7 @@ def common_header() -> str:
 }
 
 \renewcommand\labelitemii{$\vcenter{\hbox{\tiny$\bullet$}}$}
-\newcommand{\resumeItemListStart}{\begin{itemize}}
+\newcommand{\resumeItemListStart}{\begin{itemize}[itemsep=2pt,topsep=2pt,parsep=1pt,leftmargin=*]}
 \newcommand{\resumeItemListEnd}{\end{itemize}\vspace{-5pt}}
 \newcommand{\resumeSubHeadingListStart}{\begin{itemize}[leftmargin=0.15in, label={}]}
 \newcommand{\resumeSubHeadingListEnd}{\end{itemize}}
@@ -114,9 +112,8 @@ def escape(s: str) -> str:
         '~': r'\textasciitilde{}',
         '^': r'\^{}',
     }
-    for old, new in replacements.items():
-        s = s.replace(old, new)
-    return s
+    # Build result character by character to avoid re-escaping inserted sequences
+    return ''.join(replacements.get(ch, ch) for ch in s)
 
 
 def safe(val: Any) -> str:
@@ -131,18 +128,36 @@ def html_to_latex(html: str) -> str:
     Convert simple HTML (paragraphs and lists) into LaTeX code.
     """
     soup = BeautifulSoup(html or "", "html.parser")
+
+    def process(node):
+        if isinstance(node, NavigableString):
+            return escape(str(node))
+        if isinstance(node, Tag):
+            if node.name in ("strong", "b"):
+                inner = "".join(process(c) for c in node.contents)
+                return r"\textbf{" + inner + "}"
+            if node.name in ("em", "i"):
+                inner = "".join(process(c) for c in node.contents)
+                return r"\textit{" + inner + "}"
+            if node.name == "u":
+                inner = "".join(process(c) for c in node.contents)
+                return r"\underline{" + inner + "}"
+            # Fallback for other tags: process children
+            return "".join(process(c) for c in node.contents)
+        return ""
+
     lines = []
     for el in soup.contents:
         if getattr(el, "name", None) == "p":
-            text = el.get_text(strip=True)
-            if text:
-                lines.append(text)
+            tex = process(el)
+            if tex.strip():
+                lines.append(tex)
         elif getattr(el, "name", None) in ("ul", "ol"):
-            # Extract raw text from each <li> without LaTeX environment wrappers
             for li in el.find_all("li", recursive=False):
-                inner = li.get_text(strip=True)
-                if inner:
-                    lines.append(inner)
+                tex = process(li)
+                if tex.strip():
+                    lines.append(tex)
+
     return "\n".join(lines)
 
 
@@ -222,13 +237,17 @@ def _adapter_complete(resume: Any) -> str:
             dates = safe(w.startDate)
             if getattr(w, 'endDate', None):
                 dates += f" -- {safe(w.endDate)}"
-            lines.append(rf"\resumeSubheading{{{safe(w.title)}}}{{{safe(w.company)}}}{{{safe(w.location)}}}{{{dates}}}")
+            comp_link = safe(w.company)
+            if getattr(w, 'url', None):
+                u = safe(w.url)
+                comp_link = r"\href{" + u + "}{" + comp_link + "}"
+            lines.append(rf"\resumeSubheading{{{safe(w.title)}}}{{{comp_link}}}{{{safe(w.location)}}}{{{dates}}}")
             desc = getattr(w, 'description', '') or ''
             latex_body = html_to_latex(desc)
             if latex_body:
                 lines.append(r"\resumeItemListStart")
                 for line in latex_body.split("\n"):
-                    lines.append(rf"  \resumeItem{{{escape(line)}}}")
+                    lines.append(rf"  \resumeItem{{{line}}}")
                 lines.append(r"\resumeItemListEnd")
         lines.append(r"\resumeSubHeadingListEnd")
 
@@ -240,13 +259,24 @@ def _adapter_complete(resume: Any) -> str:
             dates = safe(p.startDate)
             if getattr(p, 'endDate', None):
                 dates += f" -- {safe(p.endDate)}"
-            lines.append(rf"\resumeSubheading{{{safe(p.title)}}}{{{safe(p.stack)}}}{{{safe(p.url)}}}{{{dates}}}")
+            # Projects heading on one line: title | stack on left, dates on right
+            raw_title = safe(p.title)
+            bold_title = r"\textbf{" + raw_title + "}"
+            if getattr(p, 'url', None):
+                u = safe(p.url)
+                title_link = r"\href{" + u + "}{" + bold_title + "}"
+            else:
+                title_link = bold_title
+            proj_text = title_link
+            if getattr(p, 'stack', None):
+                proj_text += " | " + safe(p.stack)
+            lines.append(rf"\resumeProjectHeading{{{proj_text}}}{{{dates}}}")
             desc = getattr(p, 'description', '') or ''
             latex_body = html_to_latex(desc)
             if latex_body:
                 lines.append(r"\resumeItemListStart")
                 for line in latex_body.split("\n"):
-                    lines.append(rf"  \resumeItem{{{escape(line)}}}")
+                    lines.append(rf"  \resumeItem{{{line}}}")
                 lines.append(r"\resumeItemListEnd")
         lines.append(r"\resumeSubHeadingListEnd")
 
@@ -258,13 +288,17 @@ def _adapter_complete(resume: Any) -> str:
             dates = safe(e.startDate)
             if getattr(e, 'endDate', None):
                 dates += f" -- {safe(e.endDate)}"
-            lines.append(rf"\resumeSubheading{{{safe(e.institution)}}}{{{safe(e.location)}}}{{{safe(e.degree)}}}{{{dates}}}")
+            inst_link = safe(e.institution)
+            if getattr(e, 'url', None):
+                u = safe(e.url)
+                inst_link = r"\href{" + u + "}{" + inst_link + "}"
+            lines.append(rf"\resumeSubheading{{{inst_link}}}{{{safe(e.location)}}}{{{safe(e.degree)}}}{{{dates}}}")
             desc = getattr(e, 'description', '') or ''
             latex_body = html_to_latex(desc)
             if latex_body:
                 lines.append(r"\resumeItemListStart")
                 for line in latex_body.split("\n"):
-                    lines.append(rf"  \resumeItem{{{escape(line)}}}")
+                    lines.append(rf"  \resumeItem{{{line}}}")
                 lines.append(r"\resumeItemListEnd")
         lines.append(r"\resumeSubHeadingListEnd")
 
@@ -274,13 +308,17 @@ def _adapter_complete(resume: Any) -> str:
         lines.append(r"\resumeSubHeadingListStart")
         for a in resume.achievements:
             dates = safe(a.startDate)
-            lines.append(rf"\resumeSubheading{{{safe(a.title)}}}{{{safe(a.url)}}}{{}}{{{dates}}}")
+            title_link = safe(a.title)
+            if getattr(a, 'url', None):
+                u = safe(a.url)
+                title_link = r"\href{" + u + "}{" + title_link + "}"
+            lines.append(rf"\resumeSubheading{{{title_link}}}{{}}{{}}{{{dates}}}")
             desc = getattr(a, 'description', '') or ''
             latex_body = html_to_latex(desc)
             if latex_body:
                 lines.append(r"\resumeItemListStart")
                 for line in latex_body.split("\n"):
-                    lines.append(rf"  \resumeItem{{{escape(line)}}}")
+                    lines.append(rf"  \resumeItem{{{line}}}")
                 lines.append(r"\resumeItemListEnd")
         lines.append(r"\resumeSubHeadingListEnd")
 
@@ -294,21 +332,6 @@ def _adapter_complete(resume: Any) -> str:
                 parts.append(safe(s.category))
             if getattr(s, 'stack', None):
                 parts.append(safe(s.stack))
-            line = ", ".join(parts)
-            if line:
-                lines.append(rf"  \resumeItem{{{line}}}")
-        lines.append(r"\resumeItemListEnd")
-
-    # Contacts
-    if getattr(resume, 'contacts', None):
-        lines.append(r"\section{Contacts}")
-        lines.append(r"\resumeItemListStart")
-        for c in resume.contacts:
-            parts = []
-            if getattr(c, 'media', None):
-                parts.append(safe(c.media))
-            if getattr(c, 'link', None):
-                parts.append(safe(c.link))
             line = ", ".join(parts)
             if line:
                 lines.append(rf"  \resumeItem{{{line}}}")

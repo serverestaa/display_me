@@ -11,7 +11,8 @@ import schemas
 from latex_template import generate_latex, generate_latex_from_complete_resume
 from database import get_db
 from utils import get_current_user
-
+import tempfile
+from fastapi.responses import StreamingResponse
 router = APIRouter()
 
 
@@ -607,20 +608,42 @@ def render_my_latex_cv(
     user = current_user
     resume_data = get_complete_resume(current_user.id, db)
     latex_output = generate_latex_from_complete_resume(resume_data)
-    tex_filename = f"resume_{user.id}.tex"
-    pdf_filename = f"resume_{user.id}.pdf"
+    # Create and work inside a temporary directory
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tex_path = os.path.join(tmpdir, "resume.tex")
+        with open(tex_path, "w", encoding="utf-8") as f:
+            f.write(latex_output)
 
-    with open(tex_filename, "w", encoding="utf-8") as f:
-        f.write(latex_output)
+        # Compile pdflatex twice
+        for _ in range(2):
+            subprocess.run(
+                ["pdflatex", "-interaction=nonstopmode", "resume.tex"],
+                cwd=tmpdir,
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                check=True
+            )
 
-    # Компилируем pdflatex
-    for _ in range(2):
-        subprocess.run(["pdflatex", "-interaction=nonstopmode", tex_filename], check=True)
+        pdf_path = os.path.join(tmpdir, "resume.pdf")
+        with open(pdf_path, "rb") as f:
+            pdf_bytes = f.read()
 
-    with open(pdf_filename, "rb") as f:
-        pdf_data = f.read()
+        # Return PDF without saving anything on backend
+        return StreamingResponse(
+            content=iter([pdf_bytes]),
+            media_type="application/pdf",
+            headers={"Content-Disposition": f"inline; filename=resume_{user.id}.pdf"}
+        )
 
-    return Response(content=pdf_data, media_type="application/pdf")
+
+# --- New endpoint: Render my LaTeX source file ---
+@router.post("/render/latex/file/me")
+def render_my_latex_source_me(
+        db: Session = Depends(get_db),
+        current_user: models.User = Depends(get_current_user)
+):
+    resume_data = get_complete_resume(current_user.id, db)
+    latex_src = generate_latex_from_complete_resume(resume_data)
+    return Response(content=latex_src, media_type="text/plain")
 
 
 @router.post("/render/latex/public")
@@ -651,3 +674,12 @@ async def render_public_latex_cv(resume_data: schemas.CompleteResume):
 
     # 5. Return the PDF bytes
     return Response(content=pdf_bytes, media_type="application/pdf")
+
+
+# --- New endpoint: Render public LaTeX source file ---
+@router.post("/render/latex/file/public")
+def render_public_latex_source(
+        resume_data: schemas.CompleteResume
+):
+    latex_src = generate_latex_from_complete_resume(resume_data)
+    return Response(content=latex_src, media_type="text/plain")
