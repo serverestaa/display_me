@@ -42,9 +42,8 @@ origins = [
     "http://localhost:8080",
     "http://localhost:8000",
     "https://www.displayme.online"
-    "https://v2.displayme.online"
+    "https://displayme.online"
 ]
-
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
