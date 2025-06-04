@@ -72,5 +72,3 @@ resume_1.tex
 resume_1.log
 resume_1.pdf
 .gitignore
-docker-compose.yml
-Dockerfile

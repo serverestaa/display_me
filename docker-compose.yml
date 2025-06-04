@@ -1,11 +1,23 @@
 version: "3.8"
 services:
   web:
-    build: ../../Downloads
+    build: .
     ports:
       - "8000:8000"
     volumes:
       - .:/app
+      - /app/__pycache__
+    env_file:
+      - .env
     environment:
-      ENV: development
-      DEBUG: "true"
+      - ENV=development
+      - DEBUG=true
+    depends_on:
+      - db
+
+  db:
+    # SQLite doesn't need a separate container since it's file-based
+    # Removing this service as it's not needed
+    # The SQLite database file will be created in the web container
+    image: alpine:latest
+    command: "echo 'SQLite is file-based, no separate container needed'"
