@@ -41,8 +41,8 @@ origins = [
     "http://localhost:3000",
     "http://localhost:8080",
     "http://localhost:8000",
-    "https://www.displayme.online"
-    "https://displayme.online"
+    "https://www.displayme.online",
+    "https://displayme.online",
 ]
 app.add_middleware(
     CORSMiddleware,
@@ -140,9 +140,8 @@ async def auth_google(request: Request):
     if callback_url:
         request.session["callbackUrl"] = callback_url
 
-    redirect_uri = request.url_for('auth_google_callback')
+    redirect_uri = "https://back.displayme.online/auth/google/callback"
     return await oauth.google.authorize_redirect(request, redirect_uri)
-
 
 @app.get("/auth/google/callback")
 async def auth_google_callback(request: Request, db: Session = Depends(get_db)):
@@ -221,7 +220,7 @@ async def auth_google_callback(request: Request, db: Session = Depends(get_db)):
     access_token = create_access_token(data={"sub": str(user.id)}, expires_delta=access_token_expires)
 
     callback_url = request.session.get("callbackUrl", "/welcome")
-    redirect_url = f"http://localhost:3000{callback_url}?token={access_token}"
+    redirect_url = f"https://displayme.online{callback_url}?token={access_token}"
 
     redirect_response = RedirectResponse(url=redirect_url.split('?')[0])
     redirect_response.set_cookie(
