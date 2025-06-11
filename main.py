@@ -75,6 +75,7 @@ def register_user(user_in: schemas.UserCreate, db: Session = Depends(get_db)):
 
 @app.post("/auth/login", response_model=schemas.Token)
 def login_for_access_token(
+    response: Response,
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: Session = Depends(get_db)
 ):
@@ -93,6 +94,14 @@ def login_for_access_token(
     access_token = create_access_token(
         data={"sub": str(user.id)},  # в sub пишем user_id
         expires_delta=access_token_expires
+    )
+    response.set_cookie(
+        key="access_token",
+        value=access_token,
+        httponly=True,
+        max_age=ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        secure=True,
+        samesite="lax"
     )
     return schemas.Token(access_token=access_token, token_type="bearer")
 
@@ -211,10 +220,19 @@ async def auth_google_callback(request: Request, db: Session = Depends(get_db)):
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(data={"sub": str(user.id)}, expires_delta=access_token_expires)
 
-    callback_url = request.session.get("callbackUrl", "/welcome")  
+    callback_url = request.session.get("callbackUrl", "/welcome")
     redirect_url = f"http://localhost:3000{callback_url}?token={access_token}"
 
-    return RedirectResponse(url=redirect_url)
+    redirect_response = RedirectResponse(url=redirect_url.split('?')[0])
+    redirect_response.set_cookie(
+        key="access_token",
+        value=access_token,
+        httponly=True,
+        max_age=ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        secure=True,
+        samesite="lax"
+    )
+    return redirect_response
 
 
 
@@ -225,7 +243,7 @@ async def auth_github(request: Request):
 
 
 @app.get("/auth/github/callback")
-async def auth_github_callback(request: Request, db: Session = Depends(get_db)):
+async def auth_github_callback(request: Request, response: Response, db: Session = Depends(get_db)):
     try:
         token = await oauth.github.authorize_access_token(request)
     except OAuthError:
@@ -252,7 +270,16 @@ async def auth_github_callback(request: Request, db: Session = Depends(get_db)):
         db.refresh(user)
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(data={"sub": str(user.id)}, expires_delta=access_token_expires)
-    return {"access_token": access_token, "token_type": "bearer"}
+    response.set_cookie(
+        key="access_token",
+        value=access_token,
+        httponly=True,
+        max_age=ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        secure=True,
+        samesite="lax"
+    )
+    # Optionally, redirect to a frontend page or just confirm
+    return {"token_type": "bearer"}
 
 # ---------------------- USER endpoints ----------------------
 @app.put("/users/me", response_model=schemas.UserRead)
