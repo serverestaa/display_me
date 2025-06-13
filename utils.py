@@ -5,6 +5,8 @@ from datetime import datetime, timedelta
 from typing import Optional
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
+from fastapi import Request, HTTPException, status
+from fastapi.security.oauth2 import OAuth2, OAuthFlowsModel
 from sqlalchemy.orm import Session
 from passlib.context import CryptContext
 from jose import JWTError, jwt
@@ -15,7 +17,30 @@ from models import User
 SECRET_KEY = os.getenv("SECRET_KEY")
 ALGORITHM = os.getenv("ALGORITHM", "HS256")
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 60))
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
+
+
+# Custom OAuth2PasswordBearer that reads from cookie
+class OAuth2PasswordBearerWithCookie(OAuth2):
+    def __init__(
+        self,
+        tokenUrl: str,
+        scheme_name: str | None = None,
+        scopes: dict[str, str] | None = None,
+        auto_error: bool = True
+    ):
+        flows = OAuthFlowsModel(password={"tokenUrl": tokenUrl, "scopes": scopes or {}})
+        super().__init__(flows=flows, scheme_name=scheme_name, auto_error=auto_error)
+
+    async def __call__(self, request: Request) -> str:
+        token = request.cookies.get("access_token")
+        if not token and self.auto_error:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Not authenticated"
+            )
+        return token
+
+oauth2_scheme = OAuth2PasswordBearerWithCookie(tokenUrl="/auth/login")
 
 # ---------------------- Подготовка паролей (passlib) ----------------------
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
