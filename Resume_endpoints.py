@@ -600,40 +600,38 @@ def get_complete_resume(user_id: int, db: Session):
     )
 
 
-@router.post("/render/latex/me")
-def render_my_latex_cv(
-        db: Session = Depends(get_db),
-        current_user: models.User = Depends(get_current_user)
-):
-    user = current_user
+def _render_my_cv(db: Session, current_user: models.User):
     resume_data = get_complete_resume(current_user.id, db)
     latex_output = generate_latex_from_complete_resume(resume_data)
-    # Create and work inside a temporary directory
+
     with tempfile.TemporaryDirectory() as tmpdir:
         tex_path = os.path.join(tmpdir, "resume.tex")
         with open(tex_path, "w", encoding="utf-8") as f:
             f.write(latex_output)
 
-        # Compile pdflatex twice
         for _ in range(2):
             subprocess.run(
                 ["pdflatex", "-interaction=nonstopmode", "resume.tex"],
                 cwd=tmpdir,
-                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                check=True
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                check=True,
             )
 
         pdf_path = os.path.join(tmpdir, "resume.pdf")
-        with open(pdf_path, "rb") as f:
-            pdf_bytes = f.read()
-
-        # Return PDF without saving anything on backend
         return StreamingResponse(
-            content=iter([pdf_bytes]),
+            open(pdf_path, "rb"),
             media_type="application/pdf",
-            headers={"Content-Disposition": f"inline; filename=resume_{user.id}.pdf"}
+            headers={"Content-Disposition": f"inline; filename=resume_{current_user.id}.pdf"},
         )
 
+@router.post("/render/latex/me")
+@router.get("/render/latex/me")          # <-- new alias
+def render_my_latex_cv(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    return _render_my_cv(db, current_user)
 
 # --- New endpoint: Render my LaTeX source file ---
 @router.post("/render/latex/file/me")
