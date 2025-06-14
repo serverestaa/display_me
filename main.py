@@ -105,6 +105,14 @@ def login_for_access_token(
     )
     return schemas.Token(access_token=access_token, token_type="bearer")
 
+@app.post("/auth/logout")
+def logout(response: Response):
+    response.delete_cookie(
+        key="access_token",
+        path="/",      
+        samesite="lax"
+    )
+    return {"detail": "logged out"}
 
 # ---------------------- OAuth configuration ----------------------
 

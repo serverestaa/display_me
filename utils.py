@@ -61,23 +61,33 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
 
 
 def get_current_user(
-    token: str = Depends(oauth2_scheme),
+    request: Request,
     db: Session = Depends(get_db),
 ) -> User:
-    credentials_exception = HTTPException(
+    token: str | None = request.cookies.get("access_token")
+
+    # fall-back to Bearer header so Swagger / curl still work
+    if token is None:
+        auth = request.headers.get("Authorization")
+        if auth and auth.lower().startswith("bearer "):
+            token = auth[7:]
+
+    credentials_exc = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials.",
+        detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
+
+    if token is None:
+        raise credentials_exc
+
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        user_id: int = payload.get("sub")
-        if user_id is None:
-            raise credentials_exception
-    except JWTError:
-        raise credentials_exception
+        user_id = int(payload.get("sub"))       # ← robust cast
+    except (JWTError, ValueError, TypeError):
+        raise credentials_exc
 
     user = db.query(User).filter(User.id == user_id).first()
     if user is None:
-        raise credentials_exception
+        raise credentials_exc
     return user
