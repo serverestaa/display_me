@@ -82,6 +82,7 @@ class WorkExperience(Base):
     title = Column(String, nullable=True)
     company = Column(String, nullable=True)
     location = Column(String, nullable=True)
+    is_disabled = Column(Boolean, default=False)
     startDate = Column(String, nullable=True)
     endDate = Column(String, nullable=True)
     description = Column(Text, nullable=True)
@@ -100,6 +101,7 @@ class Project(Base):
     startDate = Column(String, nullable=True)
     endDate = Column(String, nullable=True)
     url = Column(String, nullable=True)
+    is_disabled = Column(Boolean, default=False)
     stack = Column(String, nullable=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
 
@@ -115,6 +117,7 @@ class Education(Base):
     institution = Column(String, nullable=True)
     degree = Column(String, nullable=True)
     location = Column(String, nullable=True)
+    is_disabled = Column(Boolean, default=False)
     url = Column(String, nullable=True)
     description = Column(Text, nullable=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
@@ -129,6 +132,7 @@ class Achievement(Base):
     title = Column(String, nullable=True)
     description = Column(Text, nullable=True)
     startDate = Column(String, nullable=True)
+    is_disabled = Column(Boolean, default=False)
     url = Column(String, nullable=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
 
@@ -152,6 +156,7 @@ class Skill(Base):
     id = Column(Integer, primary_key=True, index=True)
     category = Column(String, nullable=True)
     stack = Column(String, nullable=True)
+    is_disabled = Column(Boolean, default=False)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
 
     user = relationship("User", back_populates="skills")

@@ -147,6 +147,7 @@ class WorkExperienceBase(BaseModel):
     startDate: Optional[str] = None
     endDate: Optional[str] = None
     description: Optional[str] = None
+    is_disabled: bool = False
     url: Optional[str] = None
 
 
@@ -172,6 +173,7 @@ class ProjectBase(BaseModel):
     startDate: Optional[str] = None
     endDate: Optional[str] = None
     url: Optional[str] = None
+    is_disabled: bool = False
     stack: Optional[str] = None
 
 
@@ -198,6 +200,7 @@ class EducationBase(BaseModel):
     degree: Optional[str] = None
     location: Optional[str] = None
     url: Optional[str] = None
+    is_disabled: bool = False
     description: Optional[str] = None
 
 
@@ -219,6 +222,7 @@ class EducationRead(EducationBase):
 class AchievementBase(BaseModel):
     title: Optional[str] = None
     description: Optional[str] = None
+    is_disabled: bool = False
     startDate: Optional[str] = None
     url: Optional[str] = None
 
@@ -263,6 +267,7 @@ class ContactRead(ContactBase):
 class SkillBase(BaseModel):
     category: Optional[str] = None
     stack: Optional[str] = None
+    is_disabled: bool = False
 
 
 class SkillCreate(SkillBase):
