@@ -143,6 +143,24 @@ def update_work_experience(
     db.refresh(work_exp)
     return work_exp
 
+@router.patch("/work-experience/{wid}/disable")
+def toggle_we_disable(
+        wid: int,
+        db: Session = Depends(get_db),
+        current_user: models.User = Depends(get_current_user)
+):
+    work_exp = db.query(models.WorkExperience).filter(
+        models.WorkExperience.id == wid,
+        models.WorkExperience.user_id == current_user.id
+    ).first()
+    if not work_exp:
+        raise HTTPException(status_code=404, detail="Work experience not found")
+
+    work_exp.is_disabled = not work_exp.is_disabled
+    db.commit()
+    db.refresh(work_exp)
+    return {"message": "Work experience updated", "is_disabled": work_exp.is_disabled}
+
 
 @router.delete("/work-experience/{work_exp_id}")
 def delete_work_experience(
@@ -200,6 +218,23 @@ def get_project(
         raise HTTPException(status_code=404, detail="Project not found")
     return project
 
+@router.patch("/projects/{project_id}/disable")
+def toggle_project_disable(
+        project_id: int,
+        db: Session = Depends(get_db),
+        current_user: models.User = Depends(get_current_user)
+):
+    project = db.query(models.Project).filter(
+        models.Project.id == project_id,
+        models.Project.user_id == current_user.id
+    ).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    project.is_disabled = not project.is_disabled
+    db.commit()
+    db.refresh(project)
+    return {"message": "Project updated", "is_disabled": project.is_disabled}
 
 @router.put("/projects/{project_id}", response_model=schemas.ProjectRead)
 def update_project(
@@ -280,6 +315,24 @@ def get_education(
     return education
 
 
+@router.patch("/education/{education_id}/disable")
+def toggle_education_disable(
+        education_id: int,
+        db: Session = Depends(get_db),
+        current_user: models.User = Depends(get_current_user)
+):
+    education = db.query(models.Education).filter(
+        models.Education.id == education_id,
+        models.Education.user_id == current_user.id
+    ).first()
+    if not education:
+        raise HTTPException(status_code=404, detail="Education not found")
+
+    education.is_disabled = not education.is_disabled
+    db.commit()
+    db.refresh(education)
+    return {"message": "Education updated", "is_disabled": education.is_disabled}
+
 @router.put("/education/{education_id}", response_model=schemas.EducationRead)
 def update_education(
         education_id: int,
@@ -358,6 +411,24 @@ def get_achievement(
         raise HTTPException(status_code=404, detail="Achievement not found")
     return achievement
 
+
+@router.patch("/achievements/{achievement_id}/disable")
+def toggle_achievement_disable(
+        achievement_id: int,
+        db: Session = Depends(get_db),
+        current_user: models.User = Depends(get_current_user)
+):
+    achievement = db.query(models.Achievement).filter(
+        models.Achievement.id == achievement_id,
+        models.Achievement.user_id == current_user.id
+    ).first()
+    if not achievement:
+        raise HTTPException(status_code=404, detail="Achievement not found")
+
+    achievement.is_disabled = not achievement.is_disabled
+    db.commit()
+    db.refresh(achievement)
+    return {"message": "Achievement updated", "is_disabled": achievement.is_disabled}
 
 @router.put("/achievements/{achievement_id}", response_model=schemas.AchievementRead)
 def update_achievement(
@@ -517,6 +588,24 @@ def get_skill(
     return skill
 
 
+@router.patch("/skills/{skill_id}/disable")
+def toggle_skill_disable(
+        skill_id: int,
+        db: Session = Depends(get_db),
+        current_user: models.User = Depends(get_current_user)
+):
+    skill = db.query(models.Skill).filter(
+        models.Skill.id == skill_id,
+        models.Skill.user_id == current_user.id
+    ).first()
+    if not skill:
+        raise HTTPException(status_code=404, detail="Skill not found")
+
+    skill.is_disabled = not skill.is_disabled
+    db.commit()
+    db.refresh(skill)
+    return {"message": "Skill updated", "is_disabled": skill.is_disabled}
+
 @router.put("/skills/{skill_id}", response_model=schemas.SkillRead)
 def update_skill(
         skill_id: int,
@@ -600,8 +689,42 @@ def get_complete_resume(user_id: int, db: Session):
     )
 
 
+def get_complete_resume_with_enabled_entities(user_id: int, db: Session):
+    general = db.query(models.General).filter(models.General.user_id == user_id).first()
+    work_experiences = db.query(models.WorkExperience).filter(
+        models.WorkExperience.user_id == user_id,
+        models.WorkExperience.is_disabled == False
+    ).all()
+    projects = db.query(models.Project).filter(
+        models.Project.user_id == user_id,
+        models.Project.is_disabled == False
+    ).all()
+    education = db.query(models.Education).filter(
+        models.Education.user_id == user_id,
+        models.Education.is_disabled == False
+    ).all()
+    achievements = db.query(models.Achievement).filter(
+        models.Achievement.user_id == user_id,
+        models.Achievement.is_disabled == False
+    ).all()
+    skills = db.query(models.Skill).filter(
+        models.Skill.user_id == user_id,
+        models.Skill.is_disabled == False
+    ).all()
+    contacts = db.query(models.Contact).filter(models.Contact.user_id == user_id).all()
+
+    return schemas.CompleteResume(
+        general=schemas.GeneralRead.from_orm(general) if general else None,
+        workExperience=[schemas.WorkExperienceRead.from_orm(w) for w in work_experiences],
+        projects=[schemas.ProjectRead.from_orm(p) for p in projects],
+        education=[schemas.EducationRead.from_orm(e) for e in education],
+        achievements=[schemas.AchievementRead.from_orm(a) for a in achievements],
+        skills=[schemas.SkillRead.from_orm(s) for s in skills],
+        contacts=[schemas.ContactRead.from_orm(c) for c in contacts],
+    )
+
 def _render_my_cv(db: Session, current_user: models.User):
-    resume_data = get_complete_resume(current_user.id, db)
+    resume_data = get_complete_resume_with_enabled_entities(current_user.id, db)
     latex_output = generate_latex_from_complete_resume(resume_data)
 
     with tempfile.TemporaryDirectory() as tmpdir:
