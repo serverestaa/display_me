@@ -91,18 +91,7 @@ def login_for_access_token(
             detail="Incorrect email or password",
         )
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = create_access_token(
-        data={"sub": str(user.id)},  # в sub пишем user_id
-        expires_delta=access_token_expires
-    )
-    response.set_cookie(
-        key="access_token",
-        value=access_token,
-        httponly=True,
-        max_age=ACCESS_TOKEN_EXPIRE_MINUTES * 60,
-        secure=True,
-        samesite="lax"
-    )
+    access_token = create_access_token(data={"sub": str(user.id)}, expires_delta=access_token_expires)
     return schemas.Token(access_token=access_token, token_type="bearer")
 
 @app.post("/auth/logout")
@@ -143,13 +132,12 @@ oauth.register(
 
 @app.get("/auth/google")
 async def auth_google(request: Request):
-    # Optionally, store callbackUrl from query params in session
-    callback_url = request.query_params.get("callbackUrl")
-    if callback_url:
-        request.session["callbackUrl"] = callback_url
-
-    redirect_uri = "https://back.displayme.online/auth/google/callback"
-    return await oauth.google.authorize_redirect(request, redirect_uri)
+    redirect_uri = f"{os.getenv('BACKEND_URL')}/auth/google/callback"
+    # callbackUrl можно закодировать в параметр state:
+    state = request.query_params.get("callbackUrl", "/welcome")
+    return await oauth.google.authorize_redirect(
+        request, redirect_uri, state=state
+    )
 
 @app.get("/auth/google/callback")
 async def auth_google_callback(request: Request, db: Session = Depends(get_db)):
@@ -227,66 +215,12 @@ async def auth_google_callback(request: Request, db: Session = Depends(get_db)):
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(data={"sub": str(user.id)}, expires_delta=access_token_expires)
 
-    callback_url = request.session.get("callbackUrl", "/welcome")
-    redirect_url = f"https://displayme.online{callback_url}?token={access_token}"
-
-    redirect_response = RedirectResponse(url=redirect_url.split('?')[0])
-    redirect_response.set_cookie(
-        key="access_token",
-        value=access_token,
-        httponly=True,
-        max_age=ACCESS_TOKEN_EXPIRE_MINUTES * 60,
-        secure=True,
-        samesite="lax"
+    callback_url = request.query_params.get("state", "/welcome")
+    return RedirectResponse(
+        url=f"{os.getenv('FRONTEND_URL', 'http://localhost:3000')}{callback_url}?token={access_token}",
+        status_code=303,
     )
-    return redirect_response
 
-
-
-@app.get("/auth/github")
-async def auth_github(request: Request):
-    redirect_uri = request.url_for('auth_github_callback')
-    return await oauth.github.authorize_redirect(request, redirect_uri)
-
-
-@app.get("/auth/github/callback")
-async def auth_github_callback(request: Request, response: Response, db: Session = Depends(get_db)):
-    try:
-        token = await oauth.github.authorize_access_token(request)
-    except OAuthError:
-        raise HTTPException(status_code=400, detail="GitHub authentication failed")
-    resp = await oauth.github.get('user', token=token)
-    profile = resp.json()
-    email = profile.get('email')
-    if not email:
-        resp_emails = await oauth.github.get('user/emails', token=token)
-        emails = resp_emails.json()
-        primary_email = next((item['email'] for item in emails if item.get('primary') and item.get('verified')), None)
-        email = primary_email
-    if not email:
-        raise HTTPException(status_code=400, detail="GitHub account does not have a verified email")
-    user = db.query(User).filter(User.email == email).first()
-    if not user:
-        user = User(
-            email=email,
-            hashed_password="",
-            name=profile.get('name') or profile.get('login')
-        )
-        db.add(user)
-        db.commit()
-        db.refresh(user)
-    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = create_access_token(data={"sub": str(user.id)}, expires_delta=access_token_expires)
-    response.set_cookie(
-        key="access_token",
-        value=access_token,
-        httponly=True,
-        max_age=ACCESS_TOKEN_EXPIRE_MINUTES * 60,
-        secure=True,
-        samesite="lax"
-    )
-    # Optionally, redirect to a frontend page or just confirm
-    return {"token_type": "bearer"}
 
 # ---------------------- USER endpoints ----------------------
 @app.put("/users/me", response_model=schemas.UserRead)

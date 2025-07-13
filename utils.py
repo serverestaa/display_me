@@ -16,31 +16,12 @@ from models import User
 # ---------------------- Конфиг для JWT ----------------------
 SECRET_KEY = os.getenv("SECRET_KEY")
 ALGORITHM = os.getenv("ALGORITHM", "HS256")
-ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 60))
+ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 10080))
 
 
-# Custom OAuth2PasswordBearer that reads from cookie
-class OAuth2PasswordBearerWithCookie(OAuth2):
-    def __init__(
-        self,
-        tokenUrl: str,
-        scheme_name: str | None = None,
-        scopes: dict[str, str] | None = None,
-        auto_error: bool = True
-    ):
-        flows = OAuthFlowsModel(password={"tokenUrl": tokenUrl, "scopes": scopes or {}})
-        super().__init__(flows=flows, scheme_name=scheme_name, auto_error=auto_error)
 
-    async def __call__(self, request: Request) -> str:
-        token = request.cookies.get("access_token")
-        if not token and self.auto_error:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Not authenticated"
-            )
-        return token
 
-oauth2_scheme = OAuth2PasswordBearerWithCookie(tokenUrl="/auth/login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 
 # ---------------------- Подготовка паролей (passlib) ----------------------
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -61,33 +42,20 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
 
 
 def get_current_user(
-    request: Request,
+    token: str = Depends(oauth2_scheme),
     db: Session = Depends(get_db),
 ) -> User:
-    token: str | None = request.cookies.get("access_token")
-
-    # fall-back to Bearer header so Swagger / curl still work
-    if token is None:
-        auth = request.headers.get("Authorization")
-        if auth and auth.lower().startswith("bearer "):
-            token = auth[7:]
-
     credentials_exc = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
+        status_code=401, detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
-
-    if token is None:
-        raise credentials_exc
-
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        user_id = int(payload.get("sub"))       # ← robust cast
+        uid = int(payload.get("sub"))
     except (JWTError, ValueError, TypeError):
         raise credentials_exc
 
-    user = db.query(User).filter(User.id == user_id).first()
-    if user is None:
+    user = db.query(User).get(uid)
+    if not user:
         raise credentials_exc
     return user
