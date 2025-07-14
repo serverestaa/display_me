@@ -13,6 +13,7 @@ from jose import JWTError, jwt
 from database import get_db
 from models import User
 
+
 # ---------------------- Конфиг для JWT ----------------------
 SECRET_KEY = os.getenv("SECRET_KEY")
 ALGORITHM = os.getenv("ALGORITHM", "HS256")

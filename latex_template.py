@@ -191,6 +191,12 @@ def _adapter_sections(user: Any, sections: List[Any]) -> str:
             lines.append(rf"\resumeSubheading{{{header}}}{{{loc}}}{{{sub}}}{{{dates}}}")
             desc = getattr(b, 'description', '') or ''
             latex_body = html_to_latex(desc)
+            if not latex_body and desc:                  # plain text fallback
+                latex_body = "\n".join(
+                    escape(line.lstrip("•- ").strip())
+                    for line in desc.splitlines()
+                    if line.strip()
+                )
             if latex_body:
                 lines.append(r"\resumeItemListStart")
                 for line in latex_body.split("\n"):
@@ -243,6 +249,12 @@ def _adapter_complete(resume: Any) -> str:
             lines.append(rf"\resumeSubheading{{{inst_link}}}{{{safe(e.location)}}}{{{safe(e.degree)}}}{{{dates}}}")
             desc = getattr(e, 'description', '') or ''
             latex_body = html_to_latex(desc)
+            if not latex_body and desc:                  # plain text fallback
+                latex_body = "\n".join(
+                    escape(line.lstrip("•- ").strip())
+                    for line in desc.splitlines()
+                    if line.strip()
+                )
             if latex_body:
                 lines.append(r"\resumeItemListStart")
                 for line in latex_body.split("\n"):
@@ -265,6 +277,12 @@ def _adapter_complete(resume: Any) -> str:
             lines.append(rf"\resumeSubheading{{{safe(w.title)}}}{{{comp_link}}}{{{safe(w.location)}}}{{{dates}}}")
             desc = getattr(w, 'description', '') or ''
             latex_body = html_to_latex(desc)
+            if not latex_body and desc:                  # plain text fallback
+                latex_body = "\n".join(
+                    escape(line.lstrip("•- ").strip())
+                    for line in desc.splitlines()
+                    if line.strip()
+                )
             if latex_body:
                 lines.append(r"\resumeItemListStart")
                 for line in latex_body.split("\n"):
@@ -294,6 +312,12 @@ def _adapter_complete(resume: Any) -> str:
             lines.append(rf"\resumeProjectHeading{{{proj_text}}}{{{dates}}}")
             desc = getattr(p, 'description', '') or ''
             latex_body = html_to_latex(desc)
+            if not latex_body and desc:                  # plain text fallback
+                latex_body = "\n".join(
+                    escape(line.lstrip("•- ").strip())
+                    for line in desc.splitlines()
+                    if line.strip()
+                )
             if latex_body:
                 lines.append(r"\resumeItemListStart")
                 for line in latex_body.split("\n"):
@@ -314,6 +338,12 @@ def _adapter_complete(resume: Any) -> str:
             lines.append(rf"\resumeSubheading{{{title_link}}}{{}}{{}}{{{dates}}}")
             desc = getattr(a, 'description', '') or ''
             latex_body = html_to_latex(desc)
+            if not latex_body and desc:                  # plain text fallback
+                latex_body = "\n".join(
+                    escape(line.lstrip("•- ").strip())
+                    for line in desc.splitlines()
+                    if line.strip()
+                )
             if latex_body:
                 lines.append(r"\resumeItemListStart")
                 for line in latex_body.split("\n"):
@@ -351,3 +381,6 @@ def generate_latex_from_complete_resume(resume: Any) -> str:
     Генерирует LaTeX из типизированного резюме CompleteResume.
     """
     return common_header() + "\n" + _adapter_complete(resume) + "\n" + common_footer()
+
+
+

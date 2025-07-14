@@ -49,3 +49,5 @@ uvicorn==0.34.0
 uvloop==0.21.0
 watchfiles==1.0.3
 websockets==14.1
+google-generativeai==0.8.5
+pdfminer.six==20231228
