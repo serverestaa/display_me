@@ -1,5 +1,7 @@
+from datetime import datetime
+
 from pydantic import BaseModel, EmailStr
-from typing import Optional, List
+from typing import Optional, List, Dict
 
 
 # ----- User -----
@@ -297,3 +299,23 @@ class CompleteResume(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class FeedbackItem(BaseModel):
+    text: str
+    highlight_positions: Optional[str] = None
+
+class MultiFeedbackCreate(BaseModel):
+    user_id: int
+    feedbacks: List[FeedbackItem]
+
+class FeedbackRead(BaseModel):
+    id: int
+    author_id: int
+    user_id: int
+    text: str
+    highlight_positions: str
+    created_at: datetime
+
+    class Config:
+        orm_mode = True
