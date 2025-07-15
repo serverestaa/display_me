@@ -4,7 +4,7 @@ from routers.resume import generate, achievements, contacts, education, general,
 
 router = APIRouter(prefix="/resume", tags=["resume"])
 
-router.include_router(generate.router, prefix="/", tags=["resume-generation"])
+router.include_router(generate.router, prefix="", tags=["resume-generation"])
 router.include_router(achievements.router, prefix="/achievements", tags=["achievements"])
 router.include_router(contacts.router, prefix="/contacts", tags=["contacts"])
 router.include_router(education.router, prefix="/education", tags=["education"])
