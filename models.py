@@ -1,4 +1,7 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, Boolean, Text
+from xmlrpc.client import DateTime
+
+from sqlalchemy import Column, Integer, String, ForeignKey, Boolean, Text, DateTime
+from datetime import datetime
 from sqlalchemy.orm import relationship
 from database import Base
 
@@ -160,3 +163,18 @@ class Skill(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
 
     user = relationship("User", back_populates="skills")
+
+
+class Feedback(Base):
+    __tablename__ = "feedbacks"
+
+    id = Column(Integer, primary_key=True, index=True)
+    author_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    text = Column(String, nullable=False)
+    highlight_positions = Column(String, nullable=True)
+    created_at = Column(DateTime, default=datetime.now)
+    updated_at = Column(DateTime, default=datetime.now)
+
+
+
