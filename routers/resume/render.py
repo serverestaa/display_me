@@ -10,9 +10,7 @@ from database import get_db
 from utils import get_current_user
 from fastapi import Response, UploadFile, File
 import tempfile
-from import_resume import _pdf_to_text, _ask_gemini_for_json, import_resume_from_json, replace_resume_from_json
-from fastapi.responses import JSONResponse
-
+from helpers.resume import get_complete_resume, _render_my_cv
 from pydantic import BaseModel
 from fastapi import APIRouter
 

@@ -101,3 +101,20 @@ def update_skill(
     db.commit()
     db.refresh(skill)
     return skill
+
+@router.delete("/{skill_id}")
+def delete_skill(
+        skill_id: int,
+        db: Session = Depends(get_db),
+        current_user: models.User = Depends(get_current_user)
+):
+    skill = db.query(models.Skill).filter(
+        models.Skill.id == skill_id,
+        models.Skill.user_id == current_user.id
+    ).first()
+    if not skill:
+        raise HTTPException(status_code=404, detail="Skill not found")
+
+    db.delete(skill)
+    db.commit()
+    return {"message": "Skill deleted"} 

@@ -1,11 +1,12 @@
 from fastapi import APIRouter
 
 import os
-
+from configs.oauth import oauth
 
 from utils import get_password_hash, verify_password, create_access_token, ACCESS_TOKEN_EXPIRE_MINUTES, get_current_user
 
 from datetime import timedelta
+
 from fastapi import Response
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
@@ -76,7 +77,6 @@ def logout(response: Response):
 @router.get("/google")
 async def auth_google(request: Request):
     redirect_uri = f"{os.getenv('BACKEND_URL')}/auth/google/callback"
-    # callbackUrl можно закодировать в параметр state:
     state = request.query_params.get("callbackUrl", "/welcome")
     return await oauth.google.authorize_redirect(
         request, redirect_uri, state=state
@@ -94,7 +94,7 @@ async def auth_google_callback(request: Request, db: Session = Depends(get_db)):
         user_info = await oauth.google.parse_id_token(request, token)
     except KeyError:
         resp = await oauth.google.get('userinfo', token=token)
-        user_info = resp.json()
+        user_info = await oauth.google.userinfo(token=token)
 
     email = user_info.get('email')
     if not email:

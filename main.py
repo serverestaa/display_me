@@ -3,8 +3,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
-
+from configs.oauth import oauth
 from config import settings
+import os
 from database import Base, engine
 from routers import auth, users, sections, blocks, resume
 
@@ -37,6 +38,7 @@ app.add_middleware(
 
 # Mount static files
 app.mount("/static", StaticFiles(directory="static"), name="static")
+app.state.oauth = oauth
 
 # Include routers
 app.include_router(auth.router)
