@@ -1,8 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Body, Path, Response
+from requests import session
 from sqlalchemy.orm import Session
 from database import get_db
 from models import Feedback, User
-from schemas import MultiFeedbackCreate, FeedbackRead
+from schemas import MultiFeedbackCreate, FeedbackRead, FeedbackItem
 from utils import get_current_user
 from typing import List
 
@@ -46,3 +47,46 @@ def get_feedback_for_me(
 ):
     feedbacks = db.query(Feedback).filter(Feedback.user_id == current_user.id).all()
     return feedbacks
+
+
+@router.put("/{feedback_id}", response_model=FeedbackRead)
+def update_feedback(
+    feedback_id: int = Path(..., gt=0),
+    updated_data: FeedbackItem = Body(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    feedback = db.query(Feedback).filter(Feedback.id == feedback_id).first()
+
+    if not feedback:
+        raise HTTPException(status_code=404, detail="Feedback not found")
+
+    if feedback.author_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized to update this feedback")
+
+    feedback.text = updated_data.text
+    feedback.highlight_positions = updated_data.highlight_positions
+    db.commit()
+    db.refresh(feedback)
+
+    return feedback
+
+@router.delete("/{feedback_id}", status_code=204)
+def delete_feedback(
+    feedback_id: int = Path(..., gt=0),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_juser)
+):
+    feedback = db.query(Feedback).filter(Feedback.id == feedback_id).first()
+
+    if not feedback:
+        raise HTTPException(status_code=404, detail="Feedback not found")
+
+    if feedback.author_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized to delete this feedback")
+
+    db.delete(feedback)
+    db.commit()
+
+    return Response(status_code=204)
+
