@@ -47,8 +47,7 @@ You are an API that receives *plain text* resumes and must return
   "achievements": [
     {{"title": "", "description": "", "startDate": "", "url": ""}}
   ],
-  "skills": [{{"category": "", "stack": ""}}],
-  "contacts": [{{"media": "", "link": ""}}]
+  "skills": [{{"category": "", "stack": ""}}]
 }}
 
 Return nothing else.
