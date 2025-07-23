@@ -1,4 +1,4 @@
-from typing import Any, List
+from typing import Any, List, Optional
 import re
 from bs4 import BeautifulSoup, NavigableString, Tag
 
@@ -207,166 +207,397 @@ def _adapter_sections(user: Any, sections: List[Any]) -> str:
     return "\n".join(lines)
 
 
-def _adapter_complete(resume: Any) -> str:
+def _render_general_section(gen: Any) -> List[str]:
+    """Render the general/header section"""
+    lines = []
+    lines.append(r"\begin{center}")
+    lines.append(rf"\textbf{{\Huge {safe(gen.fullName)}}} \\")
+    parts = []
+    for attr in ('email', 'phone', 'website', 'location'):
+        val = getattr(gen, attr, None)
+        if val:
+            parts.append(safe(val))
+    if parts:
+        lines.append(rf"\small {' $|$ '.join(parts)}")
+    extra = []
+    for attr in ('github', 'linkedin'):
+        val = getattr(gen, attr, None)
+        if val:
+            extra.append(safe(val))
+    if extra:
+        lines.append(rf"\small {' $|$ '.join(extra)}")
+    if gen.occupation:
+        lines.append(rf"\textit{{{safe(gen.occupation)}}}")
+    lines.append(r"\end{center}")
+    return lines
+
+
+def _render_education_section(education: List[Any]) -> List[str]:
+    """Render the education section"""
+    lines = []
+    lines.append(r"\section{Education}")
+    lines.append(r"\resumeSubHeadingListStart")
+    for e in education:
+        dates = safe(e.startDate)
+        if getattr(e, 'endDate', None):
+            dates += f" -- {safe(e.endDate)}"
+        inst_link = safe(e.institution)
+        if getattr(e, 'url', None):
+            u = safe(e.url)
+            inst_link = r"\href{" + u + "}{" + inst_link + "}"
+        lines.append(rf"\resumeSubheading{{{inst_link}}}{{{safe(e.location)}}}{{{safe(e.degree)}}}{{{dates}}}")
+        desc = getattr(e, 'description', '') or ''
+        latex_body = html_to_latex(desc)
+        if not latex_body and desc:
+            latex_body = "\n".join(
+                escape(line.lstrip("•- ").strip())
+                for line in desc.splitlines()
+                if line.strip()
+            )
+        if latex_body:
+            lines.append(r"\resumeItemListStart")
+            for line in latex_body.split("\n"):
+                lines.append(rf"  \resumeItem{{{line}}}")
+            lines.append(r"\resumeItemListEnd")
+    lines.append(r"\resumeSubHeadingListEnd")
+    return lines
+
+
+def _render_work_section(work_experience: List[Any]) -> List[str]:
+    """Render the work experience section"""
+    lines = []
+    lines.append(r"\section{Work Experience}")
+    lines.append(r"\resumeSubHeadingListStart")
+    for w in work_experience:
+        dates = safe(w.startDate)
+        if getattr(w, 'endDate', None):
+            dates += f" -- {safe(w.endDate)}"
+        comp_link = safe(w.company)
+        if getattr(w, 'url', None):
+            u = safe(w.url)
+            comp_link = r"\href{" + u + "}{" + comp_link + "}"
+        lines.append(rf"\resumeSubheading{{{safe(w.title)}}}{{{comp_link}}}{{{safe(w.location)}}}{{{dates}}}")
+        desc = getattr(w, 'description', '') or ''
+        latex_body = html_to_latex(desc)
+        if not latex_body and desc:
+            latex_body = "\n".join(
+                escape(line.lstrip("•- ").strip())
+                for line in desc.splitlines()
+                if line.strip()
+            )
+        if latex_body:
+            lines.append(r"\resumeItemListStart")
+            for line in latex_body.split("\n"):
+                lines.append(rf"  \resumeItem{{{line}}}")
+            lines.append(r"\resumeItemListEnd")
+    lines.append(r"\resumeSubHeadingListEnd")
+    return lines
+
+
+def _render_projects_section(projects: List[Any]) -> List[str]:
+    """Render the projects section"""
+    lines = []
+    lines.append(r"\section{Projects}")
+    lines.append(r"\resumeSubHeadingListStart")
+    for p in projects:
+        dates = safe(p.startDate)
+        if getattr(p, 'endDate', None):
+            dates += f" -- {safe(p.endDate)}"
+        raw_title = safe(p.title)
+        bold_title = r"\textbf{" + raw_title + "}"
+        if getattr(p, 'url', None):
+            u = safe(p.url)
+            title_link = r"\href{" + u + "}{" + bold_title + "}"
+        else:
+            title_link = bold_title
+        proj_text = title_link
+        if getattr(p, 'stack', None):
+            proj_text += " | " + safe(p.stack)
+        lines.append(rf"\resumeProjectHeading{{{proj_text}}}{{{dates}}}")
+        desc = getattr(p, 'description', '') or ''
+        latex_body = html_to_latex(desc)
+        if not latex_body and desc:
+            latex_body = "\n".join(
+                escape(line.lstrip("•- ").strip())
+                for line in desc.splitlines()
+                if line.strip()
+            )
+        if latex_body:
+            lines.append(r"\resumeItemListStart")
+            for line in latex_body.split("\n"):
+                lines.append(rf"  \resumeItem{{{line}}}")
+            lines.append(r"\resumeItemListEnd")
+    lines.append(r"\resumeSubHeadingListEnd")
+    return lines
+
+
+def _render_achievements_section(achievements: List[Any]) -> List[str]:
+    """Render the achievements section"""
+    lines = []
+    lines.append(r"\section{Achievements}")
+    lines.append(r"\resumeSubHeadingListStart")
+    for a in achievements:
+        dates = safe(a.startDate)
+        title_link = safe(a.title)
+        if getattr(a, 'url', None):
+            u = safe(a.url)
+            title_link = r"\href{" + u + "}{" + title_link + "}"
+        lines.append(rf"\resumeSubheading{{{title_link}}}{{}}{{}}{{{dates}}}")
+        desc = getattr(a, 'description', '') or ''
+        latex_body = html_to_latex(desc)
+        if not latex_body and desc:
+            latex_body = "\n".join(
+                escape(line.lstrip("•- ").strip())
+                for line in desc.splitlines()
+                if line.strip()
+            )
+        if latex_body:
+            lines.append(r"\resumeItemListStart")
+            for line in latex_body.split("\n"):
+                lines.append(rf"  \resumeItem{{{line}}}")
+            lines.append(r"\resumeItemListEnd")
+    lines.append(r"\resumeSubHeadingListEnd")
+    return lines
+
+
+def _render_skills_section(skills: List[Any]) -> List[str]:
+    """Render the skills section"""
+    lines = []
+    lines.append(r"\section{Skills}")
+    lines.append(r"\resumeItemListStart")
+    for s in skills:
+        parts = []
+        if getattr(s, 'category', None):
+            parts.append(safe(s.category))
+        if getattr(s, 'stack', None):
+            parts.append(safe(s.stack))
+        line = ", ".join(parts)
+        if line:
+            lines.append(rf"  \resumeItem{{{line}}}")
+    lines.append(r"\resumeItemListEnd")
+    return lines
+
+
+# def _adapter_complete(resume: Any) -> str:
+#     """
+#     Собирает тело документа из типизированного резюме (CompleteResume).
+#     """
+#     lines: List[str] = []
+#     # General header
+#     gen = resume.general
+#     if gen:
+#         lines.append(r"\begin{center}")
+#         lines.append(rf"\textbf{{\Huge {safe(gen.fullName)}}} \\")
+#         parts = []
+#         for attr in ('email', 'phone', 'website', 'location'):
+#             val = getattr(gen, attr, None)
+#             if val:
+#                 parts.append(safe(val))
+#         if parts:
+#             lines.append(rf"\small {' $|$ '.join(parts)}")
+#         extra = []
+#         for attr in ('github', 'linkedin'):
+#             val = getattr(gen, attr, None)
+#             if val:
+#                 extra.append(safe(val))
+#         if extra:
+#             lines.append(rf"\small {' $|$ '.join(extra)}")
+#         if gen.occupation:
+#             lines.append(rf"\textit{{{safe(gen.occupation)}}}")
+#         lines.append(r"\end{center}")
+#     # Education
+#     if getattr(resume, 'education', None):
+#         lines.append(r"\section{Education}")
+#         lines.append(r"\resumeSubHeadingListStart")
+#         for e in resume.education:
+#             dates = safe(e.startDate)
+#             if getattr(e, 'endDate', None):
+#                 dates += f" -- {safe(e.endDate)}"
+#             inst_link = safe(e.institution)
+#             if getattr(e, 'url', None):
+#                 u = safe(e.url)
+#                 inst_link = r"\href{" + u + "}{" + inst_link + "}"
+#             lines.append(rf"\resumeSubheading{{{inst_link}}}{{{safe(e.location)}}}{{{safe(e.degree)}}}{{{dates}}}")
+#             desc = getattr(e, 'description', '') or ''
+#             latex_body = html_to_latex(desc)
+#             if not latex_body and desc:                  # plain text fallback
+#                 latex_body = "\n".join(
+#                     escape(line.lstrip("•- ").strip())
+#                     for line in desc.splitlines()
+#                     if line.strip()
+#                 )
+#             if latex_body:
+#                 lines.append(r"\resumeItemListStart")
+#                 for line in latex_body.split("\n"):
+#                     lines.append(rf"  \resumeItem{{{line}}}")
+#                 lines.append(r"\resumeItemListEnd")
+#         lines.append(r"\resumeSubHeadingListEnd")
+#
+#     # Work Experience
+#     if getattr(resume, 'workExperience', None):
+#         lines.append(r"\section{Work Experience}")
+#         lines.append(r"\resumeSubHeadingListStart")
+#         for w in resume.workExperience:
+#             dates = safe(w.startDate)
+#             if getattr(w, 'endDate', None):
+#                 dates += f" -- {safe(w.endDate)}"
+#             comp_link = safe(w.company)
+#             if getattr(w, 'url', None):
+#                 u = safe(w.url)
+#                 comp_link = r"\href{" + u + "}{" + comp_link + "}"
+#             lines.append(rf"\resumeSubheading{{{safe(w.title)}}}{{{comp_link}}}{{{safe(w.location)}}}{{{dates}}}")
+#             desc = getattr(w, 'description', '') or ''
+#             latex_body = html_to_latex(desc)
+#             if not latex_body and desc:                  # plain text fallback
+#                 latex_body = "\n".join(
+#                     escape(line.lstrip("•- ").strip())
+#                     for line in desc.splitlines()
+#                     if line.strip()
+#                 )
+#             if latex_body:
+#                 lines.append(r"\resumeItemListStart")
+#                 for line in latex_body.split("\n"):
+#                     lines.append(rf"  \resumeItem{{{line}}}")
+#                 lines.append(r"\resumeItemListEnd")
+#         lines.append(r"\resumeSubHeadingListEnd")
+#
+#     # Projects
+#     if getattr(resume, 'projects', None):
+#         lines.append(r"\section{Projects}")
+#         lines.append(r"\resumeSubHeadingListStart")
+#         for p in resume.projects:
+#             dates = safe(p.startDate)
+#             if getattr(p, 'endDate', None):
+#                 dates += f" -- {safe(p.endDate)}"
+#             # Projects heading on one line: title | stack on left, dates on right
+#             raw_title = safe(p.title)
+#             bold_title = r"\textbf{" + raw_title + "}"
+#             if getattr(p, 'url', None):
+#                 u = safe(p.url)
+#                 title_link = r"\href{" + u + "}{" + bold_title + "}"
+#             else:
+#                 title_link = bold_title
+#             proj_text = title_link
+#             if getattr(p, 'stack', None):
+#                 proj_text += " | " + safe(p.stack)
+#             lines.append(rf"\resumeProjectHeading{{{proj_text}}}{{{dates}}}")
+#             desc = getattr(p, 'description', '') or ''
+#             latex_body = html_to_latex(desc)
+#             if not latex_body and desc:                  # plain text fallback
+#                 latex_body = "\n".join(
+#                     escape(line.lstrip("•- ").strip())
+#                     for line in desc.splitlines()
+#                     if line.strip()
+#                 )
+#             if latex_body:
+#                 lines.append(r"\resumeItemListStart")
+#                 for line in latex_body.split("\n"):
+#                     lines.append(rf"  \resumeItem{{{line}}}")
+#                 lines.append(r"\resumeItemListEnd")
+#         lines.append(r"\resumeSubHeadingListEnd")
+#
+#     # Achievements
+#     if getattr(resume, 'achievements', None):
+#         lines.append(r"\section{Achievements}")
+#         lines.append(r"\resumeSubHeadingListStart")
+#         for a in resume.achievements:
+#             dates = safe(a.startDate)
+#             title_link = safe(a.title)
+#             if getattr(a, 'url', None):
+#                 u = safe(a.url)
+#                 title_link = r"\href{" + u + "}{" + title_link + "}"
+#             lines.append(rf"\resumeSubheading{{{title_link}}}{{}}{{}}{{{dates}}}")
+#             desc = getattr(a, 'description', '') or ''
+#             latex_body = html_to_latex(desc)
+#             if not latex_body and desc:                  # plain text fallback
+#                 latex_body = "\n".join(
+#                     escape(line.lstrip("•- ").strip())
+#                     for line in desc.splitlines()
+#                     if line.strip()
+#                 )
+#             if latex_body:
+#                 lines.append(r"\resumeItemListStart")
+#                 for line in latex_body.split("\n"):
+#                     lines.append(rf"  \resumeItem{{{line}}}")
+#                 lines.append(r"\resumeItemListEnd")
+#         lines.append(r"\resumeSubHeadingListEnd")
+#
+#     # Skills
+#     if getattr(resume, 'skills', None):
+#         lines.append(r"\section{Skills}")
+#         lines.append(r"\resumeItemListStart")
+#         for s in resume.skills:
+#             parts = []
+#             if getattr(s, 'category', None):
+#                 parts.append(safe(s.category))
+#             if getattr(s, 'stack', None):
+#                 parts.append(safe(s.stack))
+#             line = ", ".join(parts)
+#             if line:
+#                 lines.append(rf"  \resumeItem{{{line}}}")
+#         lines.append(r"\resumeItemListEnd")
+#
+#     return "\n".join(lines)
+#
+#
+# def generate_latex(user: Any, sections: List[Any]) -> str:
+#     """
+#     Генерирует LaTeX из свободных sections/blocks.
+#     """
+#     return common_header() + "\n" + _adapter_sections(user, sections) + "\n" + common_footer()
+#
+#
+# def generate_latex_from_complete_resume(resume: Any) -> str:
+#     """
+#     Генерирует LaTeX из типизированного резюме CompleteResume.
+#     """
+#     return common_header() + "\n" + _adapter_complete(resume) + "\n" + common_footer()
+
+
+def _adapter_complete_with_order(resume: Any, section_order: Optional[List[str]] = None) -> str:
     """
-    Собирает тело документа из типизированного резюме (CompleteResume).
+    Собирает тело документа из типизированного резюме с возможностью переупорядочивания секций.
+
+    Args:
+        resume: Resume object with sections
+        section_order: List of section names in desired order.
+                      Available sections: 'education', 'work', 'projects', 'achievements', 'skills'
     """
     lines: List[str] = []
-    # General header
-    gen = resume.general
-    if gen:
-        lines.append(r"\begin{center}")
-        lines.append(rf"\textbf{{\Huge {safe(gen.fullName)}}} \\")
-        parts = []
-        for attr in ('email', 'phone', 'website', 'location'):
-            val = getattr(gen, attr, None)
-            if val:
-                parts.append(safe(val))
-        if parts:
-            lines.append(rf"\small {' $|$ '.join(parts)}")
-        extra = []
-        for attr in ('github', 'linkedin'):
-            val = getattr(gen, attr, None)
-            if val:
-                extra.append(safe(val))
-        if extra:
-            lines.append(rf"\small {' $|$ '.join(extra)}")
-        if gen.occupation:
-            lines.append(rf"\textit{{{safe(gen.occupation)}}}")
-        lines.append(r"\end{center}")
-    # Education
-    if getattr(resume, 'education', None):
-        lines.append(r"\section{Education}")
-        lines.append(r"\resumeSubHeadingListStart")
-        for e in resume.education:
-            dates = safe(e.startDate)
-            if getattr(e, 'endDate', None):
-                dates += f" -- {safe(e.endDate)}"
-            inst_link = safe(e.institution)
-            if getattr(e, 'url', None):
-                u = safe(e.url)
-                inst_link = r"\href{" + u + "}{" + inst_link + "}"
-            lines.append(rf"\resumeSubheading{{{inst_link}}}{{{safe(e.location)}}}{{{safe(e.degree)}}}{{{dates}}}")
-            desc = getattr(e, 'description', '') or ''
-            latex_body = html_to_latex(desc)
-            if not latex_body and desc:                  # plain text fallback
-                latex_body = "\n".join(
-                    escape(line.lstrip("•- ").strip())
-                    for line in desc.splitlines()
-                    if line.strip()
-                )
-            if latex_body:
-                lines.append(r"\resumeItemListStart")
-                for line in latex_body.split("\n"):
-                    lines.append(rf"  \resumeItem{{{line}}}")
-                lines.append(r"\resumeItemListEnd")
-        lines.append(r"\resumeSubHeadingListEnd")
 
-    # Work Experience
-    if getattr(resume, 'workExperience', None):
-        lines.append(r"\section{Work Experience}")
-        lines.append(r"\resumeSubHeadingListStart")
-        for w in resume.workExperience:
-            dates = safe(w.startDate)
-            if getattr(w, 'endDate', None):
-                dates += f" -- {safe(w.endDate)}"
-            comp_link = safe(w.company)
-            if getattr(w, 'url', None):
-                u = safe(w.url)
-                comp_link = r"\href{" + u + "}{" + comp_link + "}"
-            lines.append(rf"\resumeSubheading{{{safe(w.title)}}}{{{comp_link}}}{{{safe(w.location)}}}{{{dates}}}")
-            desc = getattr(w, 'description', '') or ''
-            latex_body = html_to_latex(desc)
-            if not latex_body and desc:                  # plain text fallback
-                latex_body = "\n".join(
-                    escape(line.lstrip("•- ").strip())
-                    for line in desc.splitlines()
-                    if line.strip()
-                )
-            if latex_body:
-                lines.append(r"\resumeItemListStart")
-                for line in latex_body.split("\n"):
-                    lines.append(rf"  \resumeItem{{{line}}}")
-                lines.append(r"\resumeItemListEnd")
-        lines.append(r"\resumeSubHeadingListEnd")
+    # Always render general section first
+    if getattr(resume, 'general', None):
+        lines.extend(_render_general_section(resume.general))
 
-    # Projects
-    if getattr(resume, 'projects', None):
-        lines.append(r"\section{Projects}")
-        lines.append(r"\resumeSubHeadingListStart")
-        for p in resume.projects:
-            dates = safe(p.startDate)
-            if getattr(p, 'endDate', None):
-                dates += f" -- {safe(p.endDate)}"
-            # Projects heading on one line: title | stack on left, dates on right
-            raw_title = safe(p.title)
-            bold_title = r"\textbf{" + raw_title + "}"
-            if getattr(p, 'url', None):
-                u = safe(p.url)
-                title_link = r"\href{" + u + "}{" + bold_title + "}"
-            else:
-                title_link = bold_title
-            proj_text = title_link
-            if getattr(p, 'stack', None):
-                proj_text += " | " + safe(p.stack)
-            lines.append(rf"\resumeProjectHeading{{{proj_text}}}{{{dates}}}")
-            desc = getattr(p, 'description', '') or ''
-            latex_body = html_to_latex(desc)
-            if not latex_body and desc:                  # plain text fallback
-                latex_body = "\n".join(
-                    escape(line.lstrip("•- ").strip())
-                    for line in desc.splitlines()
-                    if line.strip()
-                )
-            if latex_body:
-                lines.append(r"\resumeItemListStart")
-                for line in latex_body.split("\n"):
-                    lines.append(rf"  \resumeItem{{{line}}}")
-                lines.append(r"\resumeItemListEnd")
-        lines.append(r"\resumeSubHeadingListEnd")
+    # Define section renderers
+    section_renderers = {
+        'education': lambda: _render_education_section(resume.education) if getattr(resume, 'education', None) else [],
+        'work': lambda: _render_work_section(resume.workExperience) if getattr(resume, 'workExperience', None) else [],
+        'projects': lambda: _render_projects_section(resume.projects) if getattr(resume, 'projects', None) else [],
+        'achievements': lambda: _render_achievements_section(resume.achievements) if getattr(resume, 'achievements',
+                                                                                             None) else [],
+        'skills': lambda: _render_skills_section(resume.skills) if getattr(resume, 'skills', None) else [],
+    }
 
-    # Achievements
-    if getattr(resume, 'achievements', None):
-        lines.append(r"\section{Achievements}")
-        lines.append(r"\resumeSubHeadingListStart")
-        for a in resume.achievements:
-            dates = safe(a.startDate)
-            title_link = safe(a.title)
-            if getattr(a, 'url', None):
-                u = safe(a.url)
-                title_link = r"\href{" + u + "}{" + title_link + "}"
-            lines.append(rf"\resumeSubheading{{{title_link}}}{{}}{{}}{{{dates}}}")
-            desc = getattr(a, 'description', '') or ''
-            latex_body = html_to_latex(desc)
-            if not latex_body and desc:                  # plain text fallback
-                latex_body = "\n".join(
-                    escape(line.lstrip("•- ").strip())
-                    for line in desc.splitlines()
-                    if line.strip()
-                )
-            if latex_body:
-                lines.append(r"\resumeItemListStart")
-                for line in latex_body.split("\n"):
-                    lines.append(rf"  \resumeItem{{{line}}}")
-                lines.append(r"\resumeItemListEnd")
-        lines.append(r"\resumeSubHeadingListEnd")
+    # Default order if none provided
+    if section_order is None:
+        section_order = ['education', 'work', 'projects', 'achievements', 'skills']
 
-    # Skills
-    if getattr(resume, 'skills', None):
-        lines.append(r"\section{Skills}")
-        lines.append(r"\resumeItemListStart")
-        for s in resume.skills:
-            parts = []
-            if getattr(s, 'category', None):
-                parts.append(safe(s.category))
-            if getattr(s, 'stack', None):
-                parts.append(safe(s.stack))
-            line = ", ".join(parts)
-            if line:
-                lines.append(rf"  \resumeItem{{{line}}}")
-        lines.append(r"\resumeItemListEnd")
+    # Render sections in specified order
+    for section_name in section_order:
+        if section_name in section_renderers:
+            section_lines = section_renderers[section_name]()
+            if section_lines:  # Only add non-empty sections
+                lines.extend(section_lines)
 
     return "\n".join(lines)
+
+
+def _adapter_complete(resume: Any) -> str:
+    """
+    Original adapter for backward compatibility
+    """
+    return _adapter_complete_with_order(resume)
 
 
 def generate_latex(user: Any, sections: List[Any]) -> str:
@@ -376,11 +607,16 @@ def generate_latex(user: Any, sections: List[Any]) -> str:
     return common_header() + "\n" + _adapter_sections(user, sections) + "\n" + common_footer()
 
 
-def generate_latex_from_complete_resume(resume: Any) -> str:
+def generate_latex_from_complete_resume(resume: Any, section_order: Optional[List[str]] = None) -> str:
     """
-    Генерирует LaTeX из типизированного резюме CompleteResume.
-    """
-    return common_header() + "\n" + _adapter_complete(resume) + "\n" + common_footer()
+    Генерирует LaTeX из типизированного резюме CompleteResume с возможностью переупорядочивания секций.
 
+    Args:
+        resume: Resume object
+        section_order: List of section names in desired order.
+                      Available: 'education', 'work', 'projects', 'achievements', 'skills'
+                      Example: ['skills', 'work', 'projects', 'education', 'achievements']
+    """
+    return common_header() + "\n" + _adapter_complete_with_order(resume, section_order) + "\n" + common_footer()
 
 

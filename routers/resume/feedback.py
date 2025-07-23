@@ -75,7 +75,7 @@ def update_feedback(
 def delete_feedback(
     feedback_id: int = Path(..., gt=0),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_juser)
+    current_user: User = Depends(get_current_user)
 ):
     feedback = db.query(Feedback).filter(Feedback.id == feedback_id).first()
 

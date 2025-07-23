@@ -1,7 +1,8 @@
 import os
 import subprocess
+from typing import Optional
 
-from fastapi import Depends, HTTPException
+from fastapi import Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 import models
 import schemas
@@ -38,9 +39,16 @@ def render_my_latex_source_me(
 
 
 @router.post("/latex/public")
-async def render_public_latex_cv(resume_data: schemas.CompleteResume):
+async def render_public_latex_cv(resume_data: schemas.CompleteResume,
+                                 section_order: Optional[str] = Query(None, description="Comma-separated list of sections: education,work,projects,achievements,skills")
+                                 ):
+
+
+    sections = None
+    if section_order:
+        sections = [s.strip() for s in section_order.split(",") if s.strip()]
     # 1. Generate the .tex source
-    latex_src = generate_latex_from_complete_resume(resume_data)
+    latex_src = generate_latex_from_complete_resume(resume_data, section_order=sections)
 
     # 2. Create a temp dir and write resume.tex
     with tempfile.TemporaryDirectory() as tmpdir:
