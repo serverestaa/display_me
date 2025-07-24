@@ -48,7 +48,6 @@ You are an API that receives *plain text* resumes and must return
     {{"title": "", "description": "", "startDate": "", "url": ""}}
   ],
   "skills": [{{"category": "", "stack": ""}}],
-  "contacts": [{{"media": "", "link": ""}}]
 }}
 
 Return nothing else.

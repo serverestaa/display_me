@@ -7,6 +7,7 @@ from utils import get_current_user
 from fastapi import  UploadFile, File
 from import_resume import _pdf_to_text, _ask_gemini_for_json, import_resume_from_json, replace_resume_from_json
 from fastapi.responses import JSONResponse
+from helpers.resume import get_complete_resume
 
 from pydantic import BaseModel
 from fastapi import APIRouter
@@ -14,7 +15,7 @@ from fastapi import APIRouter
 router = APIRouter()
 
 
-@router.post("/resume", response_model=schemas.CompleteResume,
+@router.post("", response_model=schemas.CompleteResume,
              summary="Upload a PDF résumé and populate DB using Gemini")
 async def import_resume(
         file: UploadFile = File(..., description="PDF only"),
@@ -34,7 +35,7 @@ async def import_resume(
     return get_complete_resume(current_user.id, db)
 
 
-@router.post("/resume/preview",
+@router.post("/preview",
              summary="Upload a PDF and get parsed JSON back (does NOT touch DB)")
 async def import_resume_preview(
         file: UploadFile = File(..., description="PDF only"),
@@ -64,7 +65,7 @@ class ResumeImport(BaseModel):
 
 
 # ---- STEP 2  User pressed “Accept” -> wipe & insert ----
-@router.post("/resume/commit", response_model=schemas.CompleteResume,
+@router.post("/commit", response_model=schemas.CompleteResume,
              summary="Accept preview JSON and overwrite resume")
 def import_resume_commit(
         resume: ResumeImport,
