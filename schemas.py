@@ -319,3 +319,10 @@ class FeedbackRead(BaseModel):
 
     class Config:
         orm_mode = True
+
+
+class SectionsOrderUpdate(BaseModel):
+    sections: List[str] 
+
+class SectionsOrderRead(BaseModel):
+    sections: List[str]

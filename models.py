@@ -18,6 +18,8 @@ class User(Base):
     photo_url = Column(String, nullable=True)
     hashed_password = Column(String, nullable=True)
 
+    sections_order = Column(Text, nullable=True)
+
     # Original relationships
     sections = relationship("Section", back_populates="owner")
     
