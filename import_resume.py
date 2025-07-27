@@ -25,7 +25,7 @@ def _ask_gemini_for_json(resume_text: str) -> Dict:
     """
     prompt = f"""
 You are an API that receives *plain text* resumes and must return
-**only** valid JSON conforming to exactly this schema (no markdown):
+**only** valid JSON conforming to exactly this schema (no markdown). And please strictly translate dates to ("Jan 2025") in english locale for all entities:
 
 {{
   "general": {{

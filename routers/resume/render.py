@@ -117,11 +117,6 @@ def render_my_latex_cv(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
-    """
-    POST: принимает body с полями резюме и optional sectionsOrder для live-превью.
-    GET: рендерит по данным из БД и сохранённому порядку.
-    """
-    # determine order
     saved_order = _resolve_saved_order(current_user)
     sections_order = None
 
