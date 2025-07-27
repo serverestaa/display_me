@@ -5,6 +5,8 @@ import json
 import os
 import subprocess
 import tempfile
+import re
+from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Response
@@ -15,6 +17,7 @@ import models
 import schemas
 from database import get_db
 from helpers.resume import get_complete_resume, get_complete_resume_with_enabled_entities
+from helpers.sort_resume import sort_resume_inplace
 from latex_template import generate_latex_from_complete_resume
 from utils import get_current_user
 
@@ -79,6 +82,7 @@ def _build_resume_from_body(body: Dict[str, Any]) -> schemas.CompleteResume:
     )
 
 
+
 # ------------------------------ order endpoints ------------------------------
 
 @router.get("/sections-order", response_model=schemas.SectionsOrderRead)
@@ -136,6 +140,8 @@ def render_my_latex_cv(
         sections_order = saved_order
         resume_data = get_complete_resume_with_enabled_entities(current_user.id, db)
 
+    sort_resume_inplace(resume_data)
+
     latex_src = generate_latex_from_complete_resume(resume_data, sections_order)
     pdf_bytes = _compile_tex_to_pdf_bytes(latex_src)
 
@@ -144,6 +150,8 @@ def render_my_latex_cv(
         media_type="application/pdf",
         headers={"Content-Disposition": f"inline; filename=resume_{current_user.id}.pdf"},
     )
+
+
 
 
 # ------------------------------ me (TEX) ------------------------------
@@ -165,6 +173,8 @@ def render_my_latex_source_me(
     else:
         sections_order = saved_order
         resume_data = get_complete_resume(current_user.id, db)
+
+    sort_resume_inplace(resume_data)
 
     latex_src = generate_latex_from_complete_resume(resume_data, sections_order)
     return Response(content=latex_src, media_type="text/plain")

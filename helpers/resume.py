@@ -7,6 +7,7 @@ import schemas
 from latex_template import generate_latex_from_complete_resume
 import tempfile
 from fastapi.responses import StreamingResponse
+from helpers.sort_resume import sort_resume_inplace
 
 def get_complete_resume_with_enabled_entities(user_id: int, db: Session):
     general = db.query(models.General).filter(models.General.user_id == user_id).first()
@@ -63,8 +64,10 @@ def get_complete_resume(user_id: int, db: Session):
 
 
 
-def _render_my_cv(db: Session, current_user: models.User):
+def render_my_cv(db: Session, current_user: models.User):
     resume_data = get_complete_resume_with_enabled_entities(current_user.id, db)
+    sort_resume_inplace(resume_data)
+
     latex_output = generate_latex_from_complete_resume(resume_data)
 
     with tempfile.TemporaryDirectory() as tmpdir:
