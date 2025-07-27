@@ -60,8 +60,8 @@ def common_header() -> str:
 \newcommand{\resumeSubheading}[4]{%
   \vspace{-2pt}\item
     \begin{tabular*}{0.97\textwidth}[t]{l@{\extracolsep{\fill}}r}
-      \textbf{#1} & #2 \\
-      \textit{\small#3} & \textit{\small #4} \\
+      \textbf{#1} & \textit{\small #4} \\
+      \textit{\small #2} & \textit{\small #3} \\
     \end{tabular*}\vspace{-7pt}
 }
 
@@ -188,7 +188,7 @@ def _adapter_sections(user: Any, sections: List[Any]) -> str:
             loc = escape(b.location or "")
             sub = escape(b.subheader or "")
             dates = escape(b.dates or "")
-            lines.append(rf"\resumeSubheading{{{header}}}{{{loc}}}{{{sub}}}{{{dates}}}")
+            lines.append(rf"\resumeSubheading{{{header}}}{{{sub}}}{{{loc}}}{{{dates}}}")
             desc = getattr(b, 'description', '') or ''
             latex_body = html_to_latex(desc)
             if not latex_body and desc:                  # plain text fallback
@@ -246,7 +246,10 @@ def _adapter_complete(resume: Any) -> str:
             if getattr(e, 'url', None):
                 u = safe(e.url)
                 inst_link = r"\href{" + u + "}{" + inst_link + "}"
-            lines.append(rf"\resumeSubheading{{{inst_link}}}{{{safe(e.location)}}}{{{safe(e.degree)}}}{{{dates}}}")
+            lines.append(
+                rf"\resumeSubheading{{{safe(e.degree)}}}{{{inst_link}}}{{{safe(e.location)}}}{{{dates}}}"
+            )
+
             desc = getattr(e, 'description', '') or ''
             latex_body = html_to_latex(desc)
             if not latex_body and desc:                  # plain text fallback
