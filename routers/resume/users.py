@@ -17,6 +17,7 @@ from import_resume import _pdf_to_text, _ask_gemini_for_json, import_resume_from
 from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi import Body
 from typing import Any
+from helpers.resume import get_complete_resume
 
 from pydantic import BaseModel
 
