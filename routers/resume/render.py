@@ -24,7 +24,17 @@ from utils import get_current_user
 router = APIRouter(prefix="", tags=["render"])
 
 DEFAULT_ORDER = ["education", "workExperience", "projects", "achievements", "skills"]
-ALLOWED_ORDER = set(DEFAULT_ORDER)
+ALLOWED_ORDER = ["education","workExperience","projects","achievements","skills"]
+
+def _normalize_sections(seq: list[str] | None) -> list[str]:
+    seq = [ (s or "").strip() for s in (seq or []) ]
+    out = [s for s in seq if s in ALLOWED_ORDER]
+    for s in ALLOWED_ORDER:
+        if s not in out:
+            out.append(s)
+    return out
+
+
 
 
 # ------------------------------ helpers ------------------------------
@@ -90,7 +100,13 @@ def get_sections_order(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
-    return {"sections": _resolve_saved_order(current_user)}
+    if not current_user.sections_order:
+        return {"sections": ALLOWED_ORDER}
+    try:
+        data = json.loads(current_user.sections_order)
+    except Exception:
+        return {"sections": ALLOWED_ORDER}
+    return {"sections": _normalize_sections(data)}
 
 
 @router.put("/sections-order", response_model=schemas.SectionsOrderRead)
@@ -99,13 +115,11 @@ def put_sections_order(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
-    clean = [k for k in payload.sections if k in ALLOWED_ORDER]
-    if not clean:
-        clean = DEFAULT_ORDER
+    clean = _normalize_sections(payload.sections)
     current_user.sections_order = json.dumps(clean)
-    db.add(current_user)
-    db.commit()
+    db.add(current_user); db.commit()
     return {"sections": clean}
+
 
 
 # ------------------------------ me (PDF) ------------------------------
