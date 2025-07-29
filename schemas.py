@@ -4,7 +4,28 @@ from pydantic import BaseModel, EmailStr
 from typing import Optional, List, Dict
 
 
-# ----- User -----
+class SectionFieldCreate(BaseModel):
+    name: str
+    label: str
+    kind: str                # validate against {'text','url','date','longtext'} in router
+    required: bool = False
+
+class SectionFieldRead(SectionFieldCreate):
+    id: int
+    order: int
+    class Config: orm_mode = True
+
+
+class CustomSectionCreate(BaseModel):
+    title: str
+    fields: List[SectionFieldCreate]
+
+
+
+class DynamicBlockCreate(BaseModel):
+    # arbitrary keys – values always strings on wire
+    data: Dict[str, str] = {}
+
 
 class UserCreate(BaseModel):
     # Добавим поле password (plaintext)
@@ -55,6 +76,10 @@ class Token(BaseModel):
 class BlockCreate(BaseModel):
     header: Optional[str] = None
     location: Optional[str] = None
+    from_date: Optional[str] = None
+    to_date: Optional[str]   = None
+    stack: Optional[str]     = None
+
     subheader: Optional[str] = None
     dates: Optional[str] = None
     description: Optional[str] = None
@@ -68,7 +93,7 @@ class BlockRead(BaseModel):
     description: Optional[str]
     is_active: bool  # Для отображения состояния
     order: Optional[int]  # Для сохранения порядка
-
+    data: Optional[dict[str, str]] = None
     class Config:
         orm_mode = True
 
@@ -82,6 +107,16 @@ class SectionRead(BaseModel):
 
     class Config:
         orm_mode = True
+
+class CustomSectionRead(SectionRead):
+    id: int
+    title: str
+    order: int
+    is_active: bool
+    fields: List[SectionFieldRead]
+
+    class Config: orm_mode = True
+
 
 
 class SectionCreate(BaseModel):

@@ -7,7 +7,9 @@ from fastapi import Depends, HTTPException
 from sqlalchemy.orm import Session
 from database import get_db
 import schemas
-from models import User, Section, Block
+from typing import List
+from models import User, Section, Block, SectionField
+from sqlalchemy.orm import joinedload
 
 # ---------------------- SECTIONS endpoints ----------------------
 
@@ -42,6 +44,17 @@ def create_section(
     db.commit()
     db.refresh(section)
     return section
+
+
+@router.get("/", response_model=list[schemas.CustomSectionRead])
+def get_sections(db: Session = Depends(get_db),
+                 current_user: User = Depends(get_current_user)):
+    return (
+        db.query(Section)
+          .options(joinedload(Section.fields))
+          .filter(Section.user_id == current_user.id)
+          .all()
+    )
 
 @router.get("/{section_id}", response_model=schemas.SectionRead)
 def get_section(
@@ -157,3 +170,31 @@ def create_block(
     db.commit()
     db.refresh(block)
     return block
+
+
+@router.post("/custom", response_model=schemas.CustomSectionRead)
+def create_custom_section(
+    payload: schemas.CustomSectionCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    section = Section(title=payload.title, owner=current_user)
+    db.add(section)
+    db.flush()                               # we need section.id for FK
+
+    # attach fields
+    for idx, fld in enumerate(payload.fields):
+        if fld.kind not in {"text", "url", "date", "longtext"}:
+            raise HTTPException(400, f"unsupported kind {fld.kind}")
+        db.add(SectionField(
+            name=fld.name,
+            label=fld.label,
+            kind=fld.kind,
+            required=fld.required,
+            order=idx,
+            section=section
+        ))
+
+    db.commit()
+    db.refresh(section)
+    return section

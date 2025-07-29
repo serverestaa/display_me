@@ -85,3 +85,29 @@ def reorder_blocks(
             block_map[block_id].order = idx
     db.commit()
     return {"message": "Blocks reordered"}
+
+
+@router.post("/{section_id}/dynamic", response_model=schemas.BlockRead)
+def create_dynamic_block(
+    section_id: int,
+    payload: schemas.DynamicBlockCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    section = db.query(Section).filter(
+        Section.id == section_id, Section.user_id == current_user.id
+    ).first()
+    if not section:
+        raise HTTPException(404, "Section not found")
+
+    # basic validation – ensure keys exist in template
+    field_names = {f.name for f in section.fields}
+    if not payload.data.keys() <= field_names:
+        unknown = payload.data.keys() - field_names
+        raise HTTPException(400, f"unknown field(s): {', '.join(unknown)}")
+
+    block = Block(section=section, data=payload.data, from_date=payload.data.get("from"),
+              to_date  =payload.data.get("to"),
+              stack    =payload.data.get("stack"))
+    db.add(block); db.commit(); db.refresh(block)
+    return block

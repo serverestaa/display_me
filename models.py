@@ -1,9 +1,29 @@
 from xmlrpc.client import DateTime
 
-from sqlalchemy import Column, Integer, String, ForeignKey, Boolean, Text, DateTime
+from sqlalchemy import Column, Integer, String, ForeignKey, Boolean, Text, DateTime, JSON
 from datetime import datetime
 from sqlalchemy.orm import relationship
 from database import Base
+
+
+
+class SectionField(Base):
+    """
+    A field definition that belongs to a Section template
+    (e.g. 'title', 'link', 'city', …).
+    """
+    __tablename__ = "section_fields"
+
+    id         = Column(Integer, primary_key=True)
+    name       = Column(String, nullable=False)         # snake‑case key
+    label      = Column(String, nullable=False)         # human label
+    kind       = Column(String, nullable=False)         # text | url | date | longtext …
+    required   = Column(Boolean, default=False)
+    order      = Column(Integer, default=0)
+
+    section_id = Column(Integer, ForeignKey("sections.id"), nullable=False)
+    section    = relationship("Section", back_populates="fields")
+
 
 class User(Base):
     __tablename__ = "users"
@@ -12,7 +32,7 @@ class User(Base):
     name = Column(String, nullable=True)
     username = Column(String, unique=True)
     phone = Column(String, nullable=True)
-    email = Column(String, nullable=True, unique=True)  # сделаем уникальным
+    email = Column(String, nullable=True, unique=True)  
     linkedin = Column(String, nullable=True)
     github = Column(String, nullable=True)
     photo_url = Column(String, nullable=True)
@@ -44,6 +64,8 @@ class Section(Base):
 
     owner = relationship("User", back_populates="sections")
 
+    fields = relationship("SectionField", back_populates="section",
+                          cascade="all, delete-orphan")
     blocks = relationship("Block", back_populates="section")
 
 
@@ -59,8 +81,11 @@ class Block(Base):
     is_active = Column(Boolean, default=True)
     order = Column(Integer, default=0)
     section_id = Column(Integer, ForeignKey("sections.id"), nullable=False)
-
+    data = Column(JSON, default={})
     section = relationship("Section", back_populates="blocks")
+    from_date   = Column(String, nullable=True)     # “From”
+    to_date     = Column(String, nullable=True)     # “To”
+    stack       = Column(String, nullable=True)
 
 
 # New models for specific resume sections
