@@ -8,6 +8,7 @@ from config import settings
 import os
 from database import Base, engine
 from routers import auth, users, sections, blocks, resume
+from routers import cover_letter
 
 # Create database tables
 Base.metadata.create_all(bind=engine)
@@ -45,6 +46,7 @@ app.include_router(auth.router)
 app.include_router(users.router)
 app.include_router(sections.router)
 app.include_router(blocks.router)
+app.include_router(cover_letter.router)
 app.include_router(resume.router)
 
 # Root endpoint
