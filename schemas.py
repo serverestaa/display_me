@@ -1,7 +1,7 @@
 from datetime import datetime
 
 from pydantic import BaseModel, EmailStr
-from typing import Optional, List, Dict
+from typing import Optional, List, Literal, Tuple
 
 
 # ----- User -----
@@ -326,3 +326,23 @@ class SectionsOrderUpdate(BaseModel):
 
 class SectionsOrderRead(BaseModel):
     sections: List[str]
+
+
+class Highlight(BaseModel):
+    page: int
+    phrase: str
+    bbox: Tuple[float, float, float, float] | None   # will be filled server‑side
+    note: str
+    sentiment: Literal["positive", "negative"]
+
+class CVAnalysisOut(BaseModel):
+    overall: int
+    culture_fit: int
+    tech_skills: int
+    leadership: int
+    ats: int
+    positives: List[str]
+    negatives: List[str]
+    recruiter_note: str
+    highlights: List[Highlight]
+    resources: List[str]          
