@@ -50,10 +50,11 @@ async def analyze_cv(
 You are a top‑tier technical recruiter for {target_company}.
 Score the résumé (plain‑text below) for: tech skills, culture/values fit,
 leadership/x‑functional impact, and ATS‑readiness.  Produce:
-1. JSON with numeric scores (0‑100) for each area + overall average.
-2. 3–4 positive bullet notes (✅) and 3–4 improvement notes (❌).
-3. A concise recruiter summary (≤ 35 words).
-4. For each note reference the exact phrase(s) from the CV to highlight.
+1. Numeric scores (0‑100) for each dimension plus an overall average.
+2. **6–8 positive bullet notes (✅)** that spotlight the candidate's strongest phrases or data points.
+3. **6–8 improvement bullet notes (❌)** – each must include a **specific, actionable recommendation**.
+4. For **every** bullet note include the exact **phrase** from the CV that justifies it. (This will be used to highlight the PDF later.)
+5. Up to 4 fresh working, checked, valid updated and curated resources (URLs) that will help the candidate improve, prioritising authoritative best‑practice guides for big‑tech résumés.
 
 Return **only** valid JSON matching this schema:
 
