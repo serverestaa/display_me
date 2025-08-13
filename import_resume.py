@@ -26,11 +26,11 @@ def _ask_gemini_for_json(resume_text: str) -> Dict:
     prompt = f"""
 You are an API that receives *plain text* resumes and must return
 **only** valid JSON conforming to exactly this schema (no markdown). And please strictly translate dates to ("Jan 2025") in english locale for all entities:
-
+and extract about field from summary if it exists.
 {{
   "general": {{
     "fullName": "", "location": "",
-    "occupation": "", "website": "",
+    "occupation": "", "website": "", "about": "", "include_summary": true
   }},
   "workExperience": [
     {{"title": "", "company": "", "location": "", "startDate": "",
@@ -77,7 +77,7 @@ def import_resume_from_json(user: models.User, data: Dict, db: Session):
         gen = models.General(user_id=user.id)
         db.add(gen)
     _upsert_single(gen, data.get("general", {}), [
-        "fullName", "occupation", "location", "website", "about"
+        "fullName", "occupation", "location", "website", "about", "include_summary"
     ])
     # ----- Collections -----
     _sync_list(models.WorkExperience,  data.get("workExperience", []),

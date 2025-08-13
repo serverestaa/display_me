@@ -123,6 +123,7 @@ class GeneralBase(BaseModel):
     occupation: Optional[str] = None
     location: Optional[str] = None
     website: Optional[str] = None
+    include_summary: Optional[bool] = True
     about: Optional[str] = None
 
 

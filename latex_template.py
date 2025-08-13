@@ -215,6 +215,10 @@ def _adapter_complete(resume: Any, sections_order: list[str] | None = None) -> s
     """
     lines: List[str] = []
 
+    def _is_on(x) -> bool:
+        # treat missing as enabled
+        return not getattr(x, "is_disabled", False)
+
     # ------- Header (unchanged) -------
     gen = resume.general
     if gen:
@@ -238,13 +242,35 @@ def _adapter_complete(resume: Any, sections_order: list[str] | None = None) -> s
             lines.append(rf"\textit{{{safe(gen.occupation)}}}")
         lines.append(r"\end{center}")
 
+    def render_summary():
+        if not gen:
+            return
+        # Default to True when field missing (backward compatible)
+        include = getattr(gen, "include_summary", True)
+        about = getattr(gen, "about", None)
+        if include and (about and about.strip()):
+            lines.append(r"\section{Summary}")
+            # Convert tiny HTML or plain text to LaTeX
+            body = html_to_latex(about)
+            if not body and about:
+                body = "\n".join(escape(line.strip()) for line in about.splitlines() if line.strip())
+            # Paragraph-style summary (no bullets)
+            if body:
+                # Keep it compact
+                lines.append(r"\small " + body + r"\normalsize")
+
+    render_summary()
+
     # ------- helpers that render a particular section -------
     def render_education():
+        items = [e for e in (getattr(resume, 'education', []) or []) if _is_on(e)]
+        if not items:
+            return
         if not getattr(resume, 'education', None):
             return
         lines.append(r"\section{Education}")
         lines.append(r"\resumeSubHeadingListStart")
-        for e in resume.education:
+        for e in items:
             dates = safe(e.startDate)
             if getattr(e, 'endDate', None):
                 dates += f" -- {safe(e.endDate)}"
@@ -257,11 +283,14 @@ def _adapter_complete(resume: Any, sections_order: list[str] | None = None) -> s
         lines.append(r"\resumeSubHeadingListEnd")
 
     def render_work():
+        items = [w for w in (getattr(resume, 'workExperience', []) or []) if _is_on(w)]
+        if not items:
+            return
         if not getattr(resume, 'workExperience', None):
             return
         lines.append(r"\section{Work Experience}")
         lines.append(r"\resumeSubHeadingListStart")
-        for w in resume.workExperience:
+        for w in items:
             dates = safe(w.startDate)
             if getattr(w, 'endDate', None):
                 dates += f" -- {safe(w.endDate)}"
@@ -274,11 +303,16 @@ def _adapter_complete(resume: Any, sections_order: list[str] | None = None) -> s
         lines.append(r"\resumeSubHeadingListEnd")
 
     def render_projects():
+        items = [p for p in (getattr(resume, 'projects', []) or []) if _is_on(p)]
+        if not items:
+            return
+
         if not getattr(resume, 'projects', None):
             return
         lines.append(r"\section{Projects}")
         lines.append(r"\resumeSubHeadingListStart")
-        for p in resume.projects:
+        for p in items:
+
             dates = safe(p.startDate)
             if getattr(p, 'endDate', None):
                 dates += f" -- {safe(p.endDate)}"
@@ -291,11 +325,15 @@ def _adapter_complete(resume: Any, sections_order: list[str] | None = None) -> s
         lines.append(r"\resumeSubHeadingListEnd")
 
     def render_achievements():
+        items = [a for a in (getattr(resume, 'achievements', []) or []) if _is_on(a)]
+        if not items:
+            return
         if not getattr(resume, 'achievements', None):
             return
         lines.append(r"\section{Achievements}")
         lines.append(r"\resumeSubHeadingListStart")
-        for a in resume.achievements:
+        for a in items:
+
             dates = safe(a.startDate)
             title_link = r"\href{" + safe(a.url) + "}{" + safe(a.title) + "}" if getattr(a, 'url', None) else safe(a.title)
             lines.append(rf"\resumeSubheading{{{title_link}}}{{}}{{}}{{{dates}}}")
@@ -303,11 +341,15 @@ def _adapter_complete(resume: Any, sections_order: list[str] | None = None) -> s
         lines.append(r"\resumeSubHeadingListEnd")
 
     def render_skills():
+        items = [s for s in (getattr(resume, 'skills', []) or []) if _is_on(s)]
+        if not items:
+            return
         if not getattr(resume, 'skills', None):
             return
         lines.append(r"\section{Skills}")
         lines.append(r"\resumeItemListStart")
-        for s in resume.skills:
+        for s in items:
+
             parts = []
             if getattr(s, 'category', None): parts.append(safe(s.category))
             if getattr(s, 'stack', None): parts.append(safe(s.stack))

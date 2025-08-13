@@ -77,6 +77,8 @@ class General(Base):
     about = Column(Text, nullable=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
 
+    include_summary = Column(Boolean, default=True, nullable=False)
+
     user = relationship("User", back_populates="general")
 
 
