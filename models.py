@@ -18,6 +18,9 @@ class User(Base):
     photo_url = Column(String, nullable=True)
     hashed_password = Column(String, nullable=True)
 
+    li_email     = Column(String, nullable=True, unique=True)
+    li_pwd_enc   = Column(String, nullable=True)
+
     sections_order = Column(Text, nullable=True)
 
     # Original relationships

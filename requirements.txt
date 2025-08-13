@@ -1,6 +1,6 @@
 annotated-types==0.7.0
-anyio==4.7.0
-Authlib==1.5.1
+anyio>=4.9.0,<5
+authlib>=1.6,<2
 bcrypt==4.2.1
 beautifulsoup4==4.13.4
 certifi==2024.12.14
@@ -28,8 +28,7 @@ ordered-set==4.1.0
 passlib==1.7.4
 pyasn1==0.6.1
 pycparser==2.22
-pydantic==2.11.0
-pydantic_core==2.33.0
+pydantic>=2.11.5,<3
 PyLaTeX==1.4.2
 python-dotenv==1.0.1
 python-jose==3.3.0
@@ -53,4 +52,8 @@ google-generativeai==0.8.5
 pdfminer.six==20231228
 pydantic-settings~=2.10.1
 google~=3.0.0
-PyMuPDF==1.24.3
+PyMuPDF==1.25.3
+redis>=5.0
+celery[redis]>=5.3
+playwright>=1.44
+browser-use==0.5.7
