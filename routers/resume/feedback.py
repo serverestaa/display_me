@@ -1,11 +1,15 @@
-from fastapi import APIRouter, Depends, HTTPException, Body, Path, Response
+from fastapi import APIRouter, Depends, HTTPException, Body, Path, Response, File, UploadFile, Query
 from requests import session
 from sqlalchemy.orm import Session
+from starlette.responses import FileResponse
+from datetime import datetime
 from database import get_db
-from models import Feedback, User
-from schemas import MultiFeedbackCreate, FeedbackRead, FeedbackItem
+from models import Feedback, User, FeedbackSession, FeedbackReview, FeedbackComment
+from schemas import MultiFeedbackCreate, FeedbackRead, FeedbackItem, FeedbackSessionCreate, FeedbackSessionRead, FeedbackReviewUpsert, FeedbackReviewOut, FeedbackCommentOut
 from utils import get_current_user
+from config import settings
 from typing import List
+import os, uuid, json, shutil
 
 router = APIRouter(prefix="/feedback", tags=["feedback"])
 
@@ -88,3 +92,5 @@ def delete_feedback(
     db.commit()
 
     return Response(status_code=204)
+
+

@@ -1,0 +1,24 @@
+[
+    {
+        "origin": [
+            "http://localhost:3000",
+            "https://displayme.online"
+        ],
+        "method": [
+            "GET",
+            "HEAD",
+            "OPTIONS"
+        ],
+        "responseHeader": [
+            "Content-Type",
+            "Accept-Ranges",
+            "Content-Range",
+            "Content-Length",
+            "Range",
+            "Cache-Control",
+            "ETag",
+            "Last-Modified"
+        ],
+        "maxAgeSeconds": 3600
+    }
+]

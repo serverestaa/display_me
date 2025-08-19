@@ -9,8 +9,7 @@ from sqlalchemy.orm import Session
 from fastapi import HTTPException
 import models
 
-# one-time SDK init
-genai.configure(api_key=os.getenv("GEMINI_API_KEY"))  # gets key from .env by default
+genai.configure(api_key=os.getenv("GEMINI_API_KEY")) 
 
 MODEL_NAME = os.getenv("GEMINI_MODEL", "gemini-2.5-flash-preview-05-20")
 

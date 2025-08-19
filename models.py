@@ -1,9 +1,15 @@
 from xmlrpc.client import DateTime
 
-from sqlalchemy import Column, Integer, String, ForeignKey, Boolean, Text, DateTime
+from sqlalchemy import Column, Integer, String, ForeignKey, Boolean, Text, DateTime, UniqueConstraint
 from datetime import datetime
 from sqlalchemy.orm import relationship
 from database import Base
+import uuid
+
+
+def gen_token():
+    return uuid.uuid4().hex
+
 
 class User(Base):
     __tablename__ = "users"
@@ -167,6 +173,57 @@ class Skill(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
 
     user = relationship("User", back_populates="skills")
+
+
+
+class FeedbackSession(Base):
+    __tablename__ = "feedback_sessions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    owner_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    title = Column(String, nullable=True)
+    pdf_object = Column(String, nullable=True)
+    slug = Column(String, unique=True, index=True)        # short id for url
+    token = Column(String, unique=True, index=True, default=gen_token)  # share token
+    is_open = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    owner = relationship("User")
+    reviews = relationship("FeedbackReview", back_populates="session", cascade="all,delete")
+
+class FeedbackReview(Base):
+    __tablename__ = "feedback_reviews"
+
+    id = Column(Integer, primary_key=True, index=True)
+    session_id = Column(Integer, ForeignKey("feedback_sessions.id"), nullable=False)
+    reviewer_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)  # optional if logged in
+    reviewer_name = Column(String, nullable=True)   # if anonymous
+    reviewer_email = Column(String, nullable=True)  # if anonymous
+    submitted_at = Column(DateTime, nullable=True)  # null until “Submit feedback” clicked
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    session = relationship("FeedbackSession", back_populates="reviews")
+    reviewer_user = relationship("User")
+    comments = relationship("FeedbackComment", back_populates="review", cascade="all,delete")
+
+    __table_args__ = (
+        UniqueConstraint("session_id", "reviewer_user_id", name="uq_session_reviewer_user"),
+    )
+
+class FeedbackComment(Base):
+    __tablename__ = "feedback_comments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    review_id = Column(Integer, ForeignKey("feedback_reviews.id"), nullable=False)
+    page = Column(Integer, nullable=False)                 # 1-based page
+    quote = Column(Text, nullable=True)                    # exact selected text snapshot
+    # bbox list encoded as JSON string: e.g. [{"x":..., "y":..., "w":..., "h":...}, ...] in text layer coords
+    rects_json = Column(Text, nullable=False)
+    note = Column(Text, nullable=False)                    # comment body
+    sentiment = Column(String, nullable=True)              # "positive" | "negative" | "neutral"
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    review = relationship("FeedbackReview", back_populates="comments")
 
 
 class Feedback(Base):

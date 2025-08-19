@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, ConfigDict, Field, AliasChoices, field_validator
 from typing import Optional, List, Literal, Tuple
 
 
@@ -300,6 +300,76 @@ class CompleteResume(BaseModel):
 
     class Config:
         from_attributes = True
+
+class FeedbackSessionCreate(BaseModel):
+    title: Optional[str] = None
+
+class FeedbackSessionRead(BaseModel):
+    id: int
+    title: Optional[str]
+    slug: str
+    token: str
+    is_open: bool
+    pdf_url: str
+    class Config: orm_mode = True
+
+class FeedbackReviewerInfo(BaseModel):
+    reviewer_name: Optional[str] = None
+    reviewer_email: Optional[EmailStr] = None
+
+class FeedbackCommentIn(BaseModel):
+    page: int
+    quote: Optional[str] = None
+    rects: List[dict] = Field(default_factory=list)  # [{x,y,w,h}] in textLayer coords
+    note: str
+    sentiment: Optional[Literal["positive","negative","neutral"]] = "neutral"
+
+class FeedbackReviewUpsert(BaseModel):
+    reviewer: Optional[FeedbackReviewerInfo] = None
+    comments: List[FeedbackCommentIn]
+
+
+class OrmBase(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+class RectOut(BaseModel):
+    x: float
+    y: float
+    w: float
+    h: float
+
+class FeedbackCommentOut(OrmBase):
+    id: int
+    page: int
+    quote: str | None = None
+    note: str
+    sentiment: Literal['positive', 'negative', 'neutral']
+
+    # Accept many possible ORM attribute names:
+    rects: List[RectOut] = Field(
+        default_factory=list,
+        validation_alias=AliasChoices('rects', 'rects_json', 'areas', 'boxes')
+    )
+
+    @field_validator('rects', mode='before')
+    @classmethod
+    def _coerce_rects(cls, v):
+        if v is None:
+            return []
+        # If DB stores JSON as text
+        if isinstance(v, str):
+            import json
+            try:
+                v = json.loads(v)
+            except Exception:
+                return []
+        # If already dicts -> pass through
+        return v
+
+class FeedbackReviewOut(OrmBase):
+    id: int
+    comments: list[FeedbackCommentOut]
+
 
 
 class FeedbackItem(BaseModel):

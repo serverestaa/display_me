@@ -6,7 +6,7 @@ from configs.oauth import oauth
 from utils import get_password_hash, verify_password, create_access_token, ACCESS_TOKEN_EXPIRE_MINUTES, get_current_user
 
 from datetime import timedelta
-
+from urllib.parse import urlparse, urlunparse, parse_qsl, urlencode
 from fastapi import Response
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
@@ -160,7 +160,21 @@ async def auth_google_callback(request: Request, db: Session = Depends(get_db)):
     access_token = create_access_token(data={"sub": str(user.id)}, expires_delta=access_token_expires)
 
     callback_url = request.query_params.get("state", "/welcome")
+    # ensure it starts with a slash (so we don't end up with double host)
+    if not callback_url.startswith("/"):
+        callback_url = "/" + callback_url
+
+    # Merge token into the callback query params
+    parsed = urlparse(callback_url)
+    qs = dict(parse_qsl(parsed.query, keep_blank_values=True))
+    qs["token"] = access_token
+    new_query = urlencode(qs)
+
+    redirect_path = urlunparse(parsed._replace(query=new_query))
+    front = os.getenv("FRONTEND_URL", "http://localhost:3000")
+
     return RedirectResponse(
-        url=f"{os.getenv('FRONTEND_URL', 'http://localhost:3000')}{callback_url}?token={access_token}",
+        url=f"{front}{redirect_path}",
         status_code=303,
     )
+

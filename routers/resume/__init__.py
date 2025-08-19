@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from routers.resume import generate, achievements, contacts, education, general, projects, render, skills, users, workExp, impoort, feedback
+from routers.resume import generate, achievements, contacts, education, general, projects, render, skills, users, workExp, impoort, feedback, feedback_sessions
 
 router = APIRouter(prefix="/resume")
 
@@ -15,5 +15,6 @@ router.include_router(skills.router, prefix="/skills", tags=["resume-skills"])
 router.include_router(users.router, prefix="/users", tags=["resume-users"])
 router.include_router(workExp.router, prefix="/work-experience", tags=["resume-workExp"])
 router.include_router(impoort.router, prefix="/import", tags=["resume-import"])
-router.include_router(feedback.router, prefix="", tags=["resume-feedback"])
+router.include_router(feedback.router, prefix="/feedback", tags=["resume-feedback"])
+router.include_router(feedback_sessions.router, prefix="", tags=["resume-feedback-sessions"])
 
